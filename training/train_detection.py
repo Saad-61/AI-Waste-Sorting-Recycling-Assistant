@@ -89,9 +89,10 @@ def run_detection_training(
     try:
         from ultralytics import YOLO
         import torch
+        import yaml
     except ImportError as e:
         print(f"[ERROR] Required library not found: {e}")
-        print("Install with: pip install ultralytics torch torchvision")
+        print("Install with: pip install ultralytics torch torchvision pyyaml")
         sys.exit(1)
 
     project_root = get_project_root()
@@ -104,6 +105,24 @@ def run_detection_training(
             f"Dataset configuration not found: {data_yaml}\n"
             "Have you run training/prepare_datasets.py first?"
         )
+
+    # ─── Fix Ultralytics Path Resolution ─────────────────────────────────────
+    # Ultralytics resolves the 'path:' key in data.yaml relative to its global
+    # datasets_dir setting (e.g. C:\Users\...\datasets), NOT relative to the
+    # yaml file's own location. This causes FileNotFoundError on custom setups.
+    # Fix: write a temporary resolved yaml with absolute paths before training.
+    detection_root = (project_root / "training" / "dataset" / "detection").resolve()
+    with open(data_yaml) as f:
+        yaml_cfg = yaml.safe_load(f)
+
+    # Inject the absolute path — Ultralytics will combine this with train/val/test keys
+    yaml_cfg["path"] = str(detection_root)
+
+    resolved_yaml = project_root / "training" / "dataset" / "_resolved_data.yaml"
+    with open(resolved_yaml, "w") as f:
+        yaml.dump(yaml_cfg, f, default_flow_style=False, sort_keys=False)
+
+    print(f"[Training] Resolved data.yaml path: {detection_root}")
 
     # ─── Device Selection ────────────────────────────────────────────────────
     # '0' tells ultralytics to use CUDA device 0 (your RTX 3050).
@@ -153,11 +172,11 @@ def run_detection_training(
     # hsv_h/s/v:       Color jitter to handle different lighting conditions
     #                  (outdoor recycling vs. indoor bright bins).
 
-    print(f"\n[Training] Starting fine-tuning on {data_yaml}")
+    print(f"\n[Training] Starting fine-tuning on {resolved_yaml}")
     print("[Training] This will take ~20–40 min on RTX 3050 for 50 epochs.\n")
 
     results = model.train(
-        data=str(data_yaml),
+        data=str(resolved_yaml),
         epochs=epochs,
         patience=patience,
         imgsz=imgsz,
@@ -175,7 +194,8 @@ def run_detection_training(
         warmup_momentum=0.8,
 
         # Loss tuning
-        label_smoothing=0.1,      # Prevents overconfidence on dominant classes
+        # label_smoothing removed — deprecated in ultralytics >= 8.3
+        # Use cls_pw in newer versions if needed for class imbalance weighting
         cls=0.5,                   # Classification loss weight (default 0.5)
         box=7.5,                   # Box regression loss weight (default 7.5)
         dfl=1.5,                   # Distribution focal loss weight

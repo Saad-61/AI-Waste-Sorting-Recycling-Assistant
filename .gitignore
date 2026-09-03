@@ -79,6 +79,7 @@ frontend/dist/
 !backend/weights/.gitkeep
 training/dataset/detection/
 training/dataset/classification/
+training/dataset/_resolved_data.yaml
 
 # Raw datasets & logs
 data/
