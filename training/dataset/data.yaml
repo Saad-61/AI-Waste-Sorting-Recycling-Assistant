@@ -1,0 +1,15 @@
+# Ultralytics YOLO Waste Detection Dataset Configuration
+path: ../dataset # dataset root dir
+train: images/train # train images (relative to 'path')
+val: images/val # val images (relative to 'path')
+test: images/test # test images (optional)
+
+# Classes
+names:
+  0: cardboard
+  1: glass
+  2: metal
+  3: paper
+  4: plastic
+  5: trash
+  6: organic

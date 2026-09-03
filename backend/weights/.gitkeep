@@ -1,0 +1,4 @@
+# Placeholder for model weights:
+# - yolo_waste.pt
+# - yolo_waste.onnx
+# - classifier_waste.pth
