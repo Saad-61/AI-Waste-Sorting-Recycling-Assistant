@@ -1,0 +1,61 @@
+{
+  "splits": {
+    "train": {
+      "images": 1049,
+      "instances": 3260,
+      "breakdown": {
+        "plastic": 1567,
+        "other": 807,
+        "glass": 117,
+        "metal": 413,
+        "paper": 170,
+        "cardboard": 179,
+        "organic": 6,
+        "e_waste": 1
+      }
+    },
+    "val": {
+      "images": 224,
+      "instances": 658,
+      "breakdown": {
+        "plastic": 306,
+        "other": 174,
+        "glass": 34,
+        "paper": 41,
+        "cardboard": 33,
+        "metal": 69,
+        "e_waste": 1
+      }
+    },
+    "test": {
+      "images": 227,
+      "instances": 866,
+      "breakdown": {
+        "plastic": 340,
+        "metal": 68,
+        "other": 279,
+        "paper": 35,
+        "cardboard": 39,
+        "glass": 103,
+        "organic": 2
+      }
+    }
+  },
+  "class_frequencies": {
+    "plastic": 2213,
+    "paper": 246,
+    "cardboard": 251,
+    "glass": 254,
+    "metal": 550,
+    "organic": 8,
+    "e_waste": 2,
+    "other": 1260
+  },
+  "total_instances": 4784,
+  "total_images": 1500,
+  "bbox_aspect_ratios": {
+    "mean_aspect_ratio": 1.54,
+    "min_aspect_ratio": 0.058,
+    "max_aspect_ratio": 26.235
+  }
+}

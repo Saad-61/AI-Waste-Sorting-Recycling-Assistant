@@ -77,18 +77,8 @@ frontend/dist/
 *.engine
 *.bin
 !backend/weights/.gitkeep
-training/dataset/images/train/*
-!training/dataset/images/train/.gitkeep
-training/dataset/images/val/*
-!training/dataset/images/val/.gitkeep
-training/dataset/images/test/*
-!training/dataset/images/test/.gitkeep
-training/dataset/labels/train/*
-!training/dataset/labels/train/.gitkeep
-training/dataset/labels/val/*
-!training/dataset/labels/val/.gitkeep
-training/dataset/labels/test/*
-!training/dataset/labels/test/.gitkeep
+training/dataset/detection/
+training/dataset/classification/
 
 # Raw datasets & logs
 data/
