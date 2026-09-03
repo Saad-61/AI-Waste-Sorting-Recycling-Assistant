@@ -6,12 +6,17 @@ python-multipart>=0.0.9
 sqlalchemy>=2.0.25
 
 # Computer Vision & Deep Learning
-ultralytics>=8.1.0
+ultralytics>=8.2.0
 torch>=2.1.0
 torchvision>=0.16.0
 opencv-python-headless>=4.9.0
 pillow>=10.2.0
 numpy>=1.26.0
+
+# ONNX Export & Runtime
+onnx>=1.15.0
+onnxruntime>=1.17.0         # CPU inference runtime
+onnxsim>=0.4.33             # ONNX Simplifier (reduces graph nodes ~15-30%)
 
 # Explainability & Metrics
 grad-cam>=1.5.0

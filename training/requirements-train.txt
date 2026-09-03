@@ -1,0 +1,16 @@
+# Dedicated requirements for training pipeline
+# Install BEFORE running any training scripts
+# -----------------------------------------------
+# From project root:
+#   pip install -r training/requirements-train.txt
+
+ultralytics>=8.2.0
+onnx>=1.15.0
+onnxruntime>=1.17.0
+onnxsim>=0.4.33
+pillow>=10.2.0
+numpy>=1.26.0
+pyyaml>=6.0
+tqdm>=4.66.0
+seaborn>=0.13.0      # For confusion matrix plots
+matplotlib>=3.8.0
