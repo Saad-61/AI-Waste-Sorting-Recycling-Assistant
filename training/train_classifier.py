@@ -1,41 +1,82 @@
 """
-PyTorch Transfer Learning Classifier Script (MobileNetV3 / ResNet)
-Fine-tunes material & contamination classification on waste crops from detection dataset.
+PyTorch Transfer Learning Classifier Script  v2.0
+==================================================
+Fine-tunes a CNN for fine-grained waste material recognition.
+New in v2.0:
+  - EfficientNet-B2 backbone (via timm) — best accuracy/speed trade-off
+  - 11 output classes: 9 original + Soft Plastic/Bag + Uncertain/Other
+  - Weighted CrossEntropyLoss to handle class imbalance (plastic: 2213, organic: 8)
+  - Label smoothing (0.1) prevents overconfidence
+  - MixUp augmentation for generalisation
+  - Two-phase: frozen backbone warm-up then full cosine-LR fine-tune
+  - WeightedRandomSampler oversamples rare classes each epoch
+  - Per-class accuracy printed after training
+
+HOW TO RUN (from project root):
+  python training/train_classifier.py
+  python training/train_classifier.py --arch efficientnet_b2 --epochs 30
+  python training/train_classifier.py --epochs 5 --batch_size 16  # smoke test
+
+OUTPUT:
+  backend/weights/v2.0/classifier_waste.pth  (best val-acc checkpoint)
 """
 import argparse
+import random
+import shutil
 import sys
+from collections import Counter
 from pathlib import Path
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-from torchvision import models, transforms
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
+from torchvision import transforms
 from PIL import Image
 import cv2
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(x, **_): return x
 
+
+# ── Class taxonomy (v2.0: 11 classes) ───────────────────────────────────────
 CLASSES = [
-    "Cardboard",
-    "Glass Bottle",
-    "Metal Can",
-    "Paper",
-    "Plastic Bottle (PET)",
-    "Plastic Container (HDPE)",
-    "Organic Waste",
-    "Electronic Waste",
-    "General Trash"
+    "Cardboard",                # 0
+    "Glass Bottle",             # 1
+    "Metal Can",                # 2
+    "Paper",                    # 3
+    "Plastic Bottle (PET)",     # 4
+    "Plastic Container (HDPE)", # 5
+    "Organic Waste",            # 6
+    "Electronic Waste",         # 7
+    "General Trash",            # 8
+    "Soft Plastic / Bag",       # 9  NEW in v2.0
+    "Uncertain / Other",        # 10 NEW in v2.0 (open-set catch-all)
 ]
+NUM_CLASSES = len(CLASSES)
 
-# Map YOLO detection class indices (0..7) to Classifier indices (0..8)
+# YOLO detection class index -> Classifier class index
 YOLO_TO_CLASSIFIER_MAP = {
-    0: 4,  # plastic -> Plastic Bottle (PET)
-    1: 3,  # paper -> Paper
+    0: 4,  # plastic   -> Plastic Bottle (PET)
+    1: 3,  # paper     -> Paper
     2: 0,  # cardboard -> Cardboard
-    3: 1,  # glass -> Glass Bottle
-    4: 2,  # metal -> Metal Can
-    5: 6,  # organic -> Organic Waste
-    6: 7,  # e_waste -> Electronic Waste
-    7: 8,  # other -> General Trash
+    3: 1,  # glass     -> Glass Bottle
+    4: 2,  # metal     -> Metal Can
+    5: 6,  # organic   -> Organic Waste
+    6: 7,  # e_waste   -> Electronic Waste
+    7: 8,  # other     -> General Trash
 }
+
+
+# ── MixUp augmentation ───────────────────────────────────────────────────────
+def mixup_data(x, y, alpha=0.3):
+    lam = np.random.beta(alpha, alpha) if alpha > 0 else 1.0
+    idx = torch.randperm(x.size(0), device=x.device)
+    return lam * x + (1 - lam) * x[idx], y, y[idx], lam
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
 
 class WasteCropDataset(Dataset):
@@ -91,94 +132,240 @@ class WasteCropDataset(Dataset):
         return transforms.ToTensor()(pil_img), label
 
 
-def get_model(architecture: str, num_classes: int):
-    if architecture == "mobilenet_v3":
+# ── Model factory ────────────────────────────────────────────────────────────
+def get_model(architecture: str, num_classes: int) -> nn.Module:
+    """
+    efficientnet_b2 -- v2.0 default (260x260 native, ~9M params, best accuracy/speed)
+    mobilenet_v3    -- v1.0 (224x224, ~2.5M params, fastest on CPU)
+    resnet18        -- baseline (224x224, ~11M params)
+    """
+    if architecture == "efficientnet_b2":
+        try:
+            import timm
+            model = timm.create_model("efficientnet_b2", pretrained=True, num_classes=num_classes)
+            print("[Model] EfficientNet-B2 loaded via timm (ImageNet pretrained)")
+        except ImportError:
+            print("[Model] timm not found. Run: pip install timm  (falling back to EfficientNet-B0)")
+            from torchvision import models
+            model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
+            model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+    elif architecture == "mobilenet_v3":
+        from torchvision import models
         model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
-        in_features = model.classifier[3].in_features
-        model.classifier[3] = nn.Linear(in_features, num_classes)
+        model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
     elif architecture == "resnet18":
+        from torchvision import models
         model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        in_features = model.fc.in_features
-        model.fc = nn.Linear(in_features, num_classes)
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
     else:
         raise ValueError(f"Unsupported architecture: {architecture}")
     return model
 
 
-def train_classifier(args):
-    device = torch.device("cuda" if torch.cuda.is_available() and args.device != "cpu" else "cpu")
-    print(f"[Classifier] Training on device: {device}")
+def freeze_backbone(model: nn.Module, arch: str):
+    """Freeze backbone; keep classification head trainable for Phase 1."""
+    head_key = {"efficientnet_b2": "classifier", "mobilenet_v3": "classifier", "resnet18": "fc"}.get(arch, "classifier")
+    for name, p in model.named_parameters():
+        if head_key not in name:
+            p.requires_grad = False
 
-    project_root = Path(__file__).resolve().parent.parent
-    detection_dir = project_root / "training" / "dataset" / "detection"
-    train_images = detection_dir / "images" / "train"
-    train_labels = detection_dir / "labels" / "train"
 
-    train_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomRotation(degrees=15),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+def unfreeze_all(model: nn.Module):
+    for p in model.parameters():
+        p.requires_grad = True
 
-    dataset = WasteCropDataset(train_images, train_labels, transform=train_transform)
-    print(f"[Classifier] Extracted {len(dataset)} waste crop instances for training.")
 
-    if len(dataset) == 0:
-        print("[Classifier] No crop samples found. Ensure prepare_datasets.py was executed.")
-        return
+def compute_class_weights(dataset) -> torch.Tensor:
+    """Inverse-frequency weights; capped at 20x to avoid numerical instability."""
+    counts = Counter(s[2] for s in dataset.samples)
+    n_total = sum(counts.values())
+    weights = []
+    print("[Weights] Class loss weights:")
+    for i, cls_name in enumerate(CLASSES):
+        cnt = counts.get(i, 1)
+        w = min(20.0, n_total / (NUM_CLASSES * cnt))
+        weights.append(w)
+        print(f"  [{i:2d}] {cls_name:<30s}  cnt={counts.get(i,0):5d}  w={w:.2f}")
+    return torch.tensor(weights, dtype=torch.float32)
 
-    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
 
-    model = get_model(args.arch, args.num_classes).to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+def get_input_size(arch: str) -> int:
+    return 260 if arch == "efficientnet_b2" else 224
 
-    print(f"\n[Classifier] Starting training ({args.epochs} epochs)...")
-    model.train()
-    for epoch in range(1, args.epochs + 1):
-        total_loss = 0.0
-        correct = 0
-        total = 0
 
-        for images, labels in loader:
+def run_epoch(model, loader, criterion, optimizer, device, training: bool, use_mixup: bool):
+    model.train() if training else model.eval()
+    total_loss, correct, total = 0.0, 0, 0
+    all_preds, all_labels = [], []
+    with torch.set_grad_enabled(training):
+        for images, labels in tqdm(loader, desc="  Train" if training else "  Val  ", leave=False):
             images, labels = images.to(device), labels.to(device)
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
+            if training and use_mixup and random.random() < 0.5:
+                mx, ya, yb, lam = mixup_data(images, labels)
+                out = model(mx)
+                loss = mixup_criterion(criterion, out, ya, yb, lam)
+            else:
+                out = model(images)
+                loss = criterion(out, labels)
+            if training:
+                optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+                optimizer.step()
+            _, preds = torch.max(out, 1)
             total_loss += loss.item() * images.size(0)
-            _, preds = torch.max(outputs, 1)
             correct += (preds == labels).sum().item()
             total += labels.size(0)
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+    return total_loss / max(total, 1), 100.0 * correct / max(total, 1), all_preds, all_labels
 
-        epoch_loss = total_loss / max(total, 1)
-        epoch_acc = (correct / max(total, 1)) * 100
-        print(f"  Epoch [{epoch:02d}/{args.epochs:02d}] Loss: {epoch_loss:.4f} | Accuracy: {epoch_acc:.2f}%")
+
+def print_per_class_accuracy(preds, labels):
+    print("\n[Results] Per-class validation accuracy:")
+    per = {i: [0, 0] for i in range(NUM_CLASSES)}
+    for p, l in zip(preds, labels):
+        per[l][1] += 1
+        if p == l:
+            per[l][0] += 1
+    for i, cls_name in enumerate(CLASSES):
+        corr, tot = per[i]
+        if tot > 0:
+            acc = 100.0 * corr / tot
+            print(f"  [{i:2d}] {cls_name:<30s}  {corr}/{tot}  ({acc:.1f}%)")
+        else:
+            print(f"  [{i:2d}] {cls_name:<30s}  no val samples")
+
+
+def train_classifier(args):
+    torch.manual_seed(42); np.random.seed(42); random.seed(42)
+    use_cuda = torch.cuda.is_available() and args.device != "cpu"
+    device = torch.device("cuda" if use_cuda else "cpu")
+    print(f"[Classifier] Device: {device}")
+    if device.type == "cuda":
+        print(f"[Classifier] GPU: {torch.cuda.get_device_name(0)}")
+
+    project_root = Path(__file__).resolve().parent.parent
+    det_dir = project_root / "training" / "dataset" / "detection"
+    input_size = get_input_size(args.arch)
+    print(f"[Classifier] Arch: {args.arch}  Input: {input_size}x{input_size}  Classes: {args.num_classes}")
+
+    # ── Transforms ──────────────────────────────────────────────────────────
+    train_tf = transforms.Compose([
+        transforms.Resize((input_size + 20, input_size + 20)),
+        transforms.RandomCrop(input_size),
+        transforms.RandomHorizontalFlip(0.5),
+        transforms.RandomVerticalFlip(0.15),
+        transforms.RandomRotation(20),
+        transforms.ColorJitter(0.3, 0.3, 0.2, 0.05),
+        transforms.RandomGrayscale(0.05),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        transforms.RandomErasing(p=0.2, scale=(0.02, 0.15)),
+    ])
+    val_tf = transforms.Compose([
+        transforms.Resize((input_size, input_size)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ])
+
+    # ── Datasets ────────────────────────────────────────────────────────────
+    train_ds = WasteCropDataset(det_dir / "images" / "train", det_dir / "labels" / "train", train_tf)
+    val_ds   = WasteCropDataset(det_dir / "images" / "val",   det_dir / "labels" / "val",   val_tf)
+    print(f"[Classifier] Train: {len(train_ds)} crops  |  Val: {len(val_ds)} crops")
+    if len(train_ds) == 0:
+        print("[Classifier] No samples found. Run: python training/prepare_datasets.py")
+        sys.exit(1)
+
+    # ── Weighted sampler ─────────────────────────────────────────────────────
+    class_weights  = compute_class_weights(train_ds)
+    sample_weights = [class_weights[s[2]].item() for s in train_ds.samples]
+    sampler = WeightedRandomSampler(sample_weights, len(sample_weights), replacement=True)
+    pin = device.type == "cuda"
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, sampler=sampler, num_workers=0, pin_memory=pin)
+    val_loader   = DataLoader(val_ds,   batch_size=args.batch_size, shuffle=False,   num_workers=0, pin_memory=pin)
+
+    # ── Loss (weighted CE + label smoothing) ─────────────────────────────────
+    criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), label_smoothing=0.1)
+
+    # ── Model ────────────────────────────────────────────────────────────────
+    model = get_model(args.arch, args.num_classes).to(device)
+
+    # ── Phase 1: Frozen backbone head warm-up ────────────────────────────────
+    freeze_ep = min(5, max(1, args.epochs // 4))
+    freeze_backbone(model, args.arch)
+    head_params = [p for p in model.parameters() if p.requires_grad]
+    opt_head = torch.optim.AdamW(head_params, lr=args.lr * 10, weight_decay=1e-4)
+    print(f"\n[Phase 1] Frozen backbone  {freeze_ep} warm-up epochs  (head lr={args.lr * 10:.5f})")
+    for ep in range(1, freeze_ep + 1):
+        tr_loss, tr_acc, _, _ = run_epoch(model, train_loader, criterion, opt_head, device, True, False)
+        print(f"  Epoch [{ep:02d}/{freeze_ep:02d}]  Loss: {tr_loss:.4f}  Acc: {tr_acc:.2f}%")
+
+    # ── Phase 2: Full fine-tune + cosine LR ──────────────────────────────────
+    unfreeze_all(model)
+    fine_ep   = args.epochs - freeze_ep
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    T0        = max(8, fine_ep // 2)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                    optimizer, T_0=T0, T_mult=1, eta_min=1e-6)
 
     output_path = Path(args.output)
     if not output_path.is_absolute():
         output_path = (project_root / output_path).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_best   = output_path.with_suffix(".best_tmp.pth")
+    best_acc   = 0.0
+    final_preds, final_labels = [], []
 
-    torch.save(model, str(output_path))
-    print(f"\n[Success] Trained Classifier saved to: {output_path}")
+    print(f"\n[Phase 2] Full fine-tune  {fine_ep} epochs  (lr={args.lr:.5f}  cosine T0={T0})")
+    for ep in range(1, fine_ep + 1):
+        tr_loss, tr_acc, _, _           = run_epoch(model, train_loader, criterion, optimizer, device, True,  True)
+        vl_loss, vl_acc, vl_p, vl_l    = run_epoch(model, val_loader,   criterion, None,      device, False, False)
+        scheduler.step(ep)
+        lr_now = optimizer.param_groups[0]["lr"]
+        best_tag = ""
+        if vl_acc > best_acc:
+            best_acc = vl_acc
+            torch.save(model, str(tmp_best))
+            best_tag = "  BEST"
+            final_preds, final_labels = vl_p, vl_l
+        print(f"  Epoch [{ep:02d}/{fine_ep:02d}]  "
+              f"Train {tr_loss:.4f}/{tr_acc:.2f}%  "
+              f"Val {vl_loss:.4f}/{vl_acc:.2f}%  "
+              f"lr={lr_now:.6f}{best_tag}")
+
+    # ── Save best checkpoint ─────────────────────────────────────────────────
+    if tmp_best.exists():
+        shutil.copy2(tmp_best, output_path)
+        tmp_best.unlink()
+    else:
+        torch.save(model, str(output_path))
+
+    print(f"\n[Success] Best val accuracy: {best_acc:.2f}%")
+    print(f"[Success] Classifier saved to: {output_path}")
+    if final_preds:
+        print_per_class_accuracy(final_preds, final_labels)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train CNN waste material classifier on crops")
-    parser.add_argument("--arch", type=str, default="mobilenet_v3", choices=["mobilenet_v3", "resnet18"])
-    parser.add_argument("--num_classes", type=int, default=9)
-    parser.add_argument("--epochs", type=int, default=15)
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=5e-4)
-    parser.add_argument("--device", type=str, default="0")
-    parser.add_argument("--output", type=str, default="backend/weights/classifier_waste.pth")
-
+    parser = argparse.ArgumentParser(
+        description="Train CNN waste classifier  v2.0 — EfficientNet-B2 / 11 classes",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("--arch", default="efficientnet_b2",
+                        choices=["efficientnet_b2", "mobilenet_v3", "resnet18"],
+                        help="Model backbone (default: efficientnet_b2)")
+    parser.add_argument("--num_classes", type=int, default=NUM_CLASSES,
+                        help=f"Output classes (default: {NUM_CLASSES})")
+    parser.add_argument("--epochs", type=int, default=30,
+                        help="Total epochs incl. frozen phase (default: 30)")
+    parser.add_argument("--batch_size", type=int, default=32,
+                        help="Batch size — reduce to 16 if GPU OOM (default: 32)")
+    parser.add_argument("--lr", type=float, default=3e-4,
+                        help="Base LR for fine-tune phase (default: 3e-4)")
+    parser.add_argument("--device", default="auto",
+                        help="Device: auto | cpu | cuda (default: auto)")
+    parser.add_argument("--output", default="backend/weights/v2.0/classifier_waste.pth",
+                        help="Output path for saved model")
     args = parser.parse_args()
     train_classifier(args)
-

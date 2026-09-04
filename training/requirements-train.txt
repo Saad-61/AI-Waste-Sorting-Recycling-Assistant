@@ -14,3 +14,4 @@ pyyaml>=6.0
 tqdm>=4.66.0
 seaborn>=0.13.0      # For confusion matrix plots
 matplotlib>=3.8.0
+timm>=0.9.12         # EfficientNet-B2 pretrained weights (v2.0 classifier)

@@ -1,7 +1,8 @@
 """
-YOLO Waste Detection Training Script
-=====================================
-Trains a YOLOv8n model on the 8-class waste detection dataset.
+YOLO Waste Detection Training Script  v2.0
+==========================================
+Trains a YOLOv8m model on the 8-class waste detection dataset.
+Upgraded from yolov8n (v1.0) to yolov8m for better accuracy on small objects.
 
 Key improvements over naive training:
   - Adaptive batch sizing: automatically scales down batch if GPU OOM
@@ -66,25 +67,28 @@ def get_project_root() -> Path:
 
 
 def run_detection_training(
-    model_name: str = "yolov8n.pt",
+    model_name: str = "yolov8m.pt",  # v2.0 upgrade: yolov8n -> yolov8m
     epochs: int = 50,
-    batch: int = 16,
+    batch: int = 8,                   # m-model needs less batch on 6GB GPU
     imgsz: int = 640,
     workers: int = 4,
-    patience: int = 10,
+    patience: int = 15,
     resume: bool = False,
+    run_name: str = "waste_yolo_v2_run",
 ):
     """
     Fine-tune YOLO on the 8-class waste detection dataset.
 
     Args:
-        model_name: Base checkpoint to fine-tune from. yolov8n.pt is fastest.
-                    Use yolov8s.pt or yolov8m.pt for higher accuracy if training time permits.
-        epochs:     Maximum number of training passes over the full dataset.
-        batch:      Images processed per GPU step. Reduce to 8 if you hit CUDA OOM.
-        imgsz:      Input resolution. 640 is the sweet spot for accuracy vs. speed.
-        workers:    CPU threads for data loading. 4 is fine for most laptops.
-        patience:   Early stopping: halt after N epochs with no mAP improvement.
+        model_name: Base checkpoint. yolov8m.pt is the v2.0 default.
+                    Use yolov8s.pt or yolov8l.pt for different speed/accuracy.
+        epochs:     Maximum training passes.
+        batch:      Images per GPU step. Default 8 for yolov8m on 6GB GPU.
+                    Reduce to 4 if you hit CUDA OOM.
+        imgsz:      Input resolution (640 = sweet spot).
+        workers:    CPU threads for data loading.
+        patience:   Early stopping after N epochs with no mAP improvement.
+        run_name:   Output folder name under training/runs/.
     """
     # Must import inside function so argparse --help works without ultralytics installed
     try:
@@ -177,7 +181,7 @@ def run_detection_training(
     # When --resume is set, YOLO loads the last.pt checkpoint and continues
     # from the epoch it stopped at. All hyperparameters are read from the
     # checkpoint's saved args, so you don't need to re-specify them.
-    last_pt = project_root / "training" / "runs" / "waste_yolo_run" / "weights" / "last.pt"
+    last_pt = project_root / "training" / "runs" / run_name / "weights" / "last.pt"
     if resume:
         if not last_pt.exists():
             raise FileNotFoundError(
@@ -185,8 +189,6 @@ def run_detection_training(
                 "Start a fresh run first (without --resume)."
             )
         print(f"[Training] Resuming from checkpoint: {last_pt}")
-        # When resuming, pass the checkpoint path as the model
-        # and set resume=True — YOLO handles the rest automatically
         model = YOLO(str(last_pt))
 
     print(f"\n[Training] Starting {'resumed' if resume else 'fresh'} training on {resolved_yaml}")
@@ -234,7 +236,7 @@ def run_detection_training(
 
         # Output
         project=str(project_root / "training" / "runs"),
-        name="waste_yolo_run",
+        name=run_name,
         exist_ok=True,
         save=True,
         save_period=5,             # Save checkpoint every 5 epochs (not just best/last)
@@ -242,14 +244,20 @@ def run_detection_training(
         verbose=True,
     )
 
-    # ─── Copy Best Checkpoint → Backend ──────────────────────────────────────
-    best_pt = project_root / "training" / "runs" / "waste_yolo_run" / "weights" / "best.pt"
-    target_pt = weights_dir / "yolo_waste.pt"
+    # ─── Copy Best Checkpoint → Backend v2.0 ────────────────────────────────
+    best_pt  = project_root / "training" / "runs" / run_name / "weights" / "best.pt"
+    target_dir = weights_dir / "v2.0"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_pt = target_dir / "yolo_waste.pt"
+    # Also keep root-level symlink for current active model
+    root_target = weights_dir / "yolo_waste.pt"
 
     if best_pt.exists():
-        shutil.copy2(best_pt, target_pt)
+        shutil.copy2(best_pt, target_pt)           # v2.0 versioned copy
+        shutil.copy2(best_pt, root_target)         # active model symlink
         size_mb = target_pt.stat().st_size / (1024 ** 2)
         print(f"\n[Success] Best checkpoint saved to: {target_pt}")
+        print(f"[Success] Active model updated:     {root_target}")
         print(f"[Success] File size: {size_mb:.1f} MB")
     else:
         raise FileNotFoundError(
@@ -266,16 +274,16 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--model", type=str, default="yolov8n.pt",
-        help="Base YOLO checkpoint: yolov8n.pt (fastest) | yolov8s.pt | yolov8m.pt"
+        "--model", type=str, default="yolov8m.pt",
+        help="Base YOLO checkpoint: yolov8m.pt (v2.0 default) | yolov8s.pt | yolov8l.pt"
     )
     parser.add_argument(
         "--epochs", type=int, default=50,
         help="Maximum training epochs (default: 50)"
     )
     parser.add_argument(
-        "--batch", type=int, default=16,
-        help="Batch size (default: 16). Reduce to 8 if CUDA OOM on 6GB GPU"
+        "--batch", type=int, default=8,
+        help="Batch size (default: 8 for yolov8m on 6GB GPU). Reduce to 4 if CUDA OOM"
     )
     parser.add_argument(
         "--imgsz", type=int, default=640,
@@ -286,8 +294,8 @@ if __name__ == "__main__":
         help="DataLoader CPU threads (default: 4)"
     )
     parser.add_argument(
-        "--patience", type=int, default=10,
-        help="Early stopping patience in epochs (default: 10)"
+        "--patience", type=int, default=15,
+        help="Early stopping patience in epochs (default: 15)"
     )
     parser.add_argument(
         "--resume", action="store_true", default=False,
@@ -303,4 +311,5 @@ if __name__ == "__main__":
         workers=args.workers,
         patience=args.patience,
         resume=args.resume,
+        run_name="waste_yolo_v2_run",
     )
