@@ -61,10 +61,15 @@ class WasteDetector:
                 }
             ]
 
+        h, w, _ = image.shape
+        total_image_area = float(h * w)
+
         results = self.model.predict(
             source=image,
             conf=conf,
             iou=settings.IOU_THRESHOLD,
+            imgsz=1024,         # High-resolution inference for fine-grained small waste detection
+            agnostic_nms=True,  # Suppress duplicate overlapping boxes across different classes
             device=settings.DEVICE,
             verbose=False
         )
@@ -77,6 +82,15 @@ class WasteDetector:
                 confidence = float(box.conf[0].cpu().numpy())
                 cls_id = int(box.cls[0].cpu().numpy())
                 label = self.model.names[cls_id] if hasattr(self.model, "names") else f"class_{cls_id}"
+
+                # Calculate box area ratio
+                box_w = max(0, coords[2] - coords[0])
+                box_h = max(0, coords[3] - coords[1])
+                box_area_ratio = (box_w * box_h) / max(total_image_area, 1.0)
+
+                # Filter out giant background hallucinations (e.g. handrails, walls) unless confidence is very high
+                if box_area_ratio > 0.50 and confidence < 0.75:
+                    continue
 
                 detections.append({
                     "bbox": coords,

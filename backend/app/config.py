@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./app_data.db"
 
     # Model inference settings
-    CONFIDENCE_THRESHOLD: float = 0.45
-    IOU_THRESHOLD: float = 0.45
+    CONFIDENCE_THRESHOLD: float = 0.32
+    IOU_THRESHOLD: float = 0.40
     DEVICE: str = "cpu"  # 'cpu', 'cuda', or 'mps'
 
     # CORS configuration
