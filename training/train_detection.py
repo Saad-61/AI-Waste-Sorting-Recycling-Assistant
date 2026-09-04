@@ -72,6 +72,7 @@ def run_detection_training(
     imgsz: int = 640,
     workers: int = 4,
     patience: int = 10,
+    resume: bool = False,
 ):
     """
     Fine-tune YOLO on the 8-class waste detection dataset.
@@ -172,7 +173,23 @@ def run_detection_training(
     # hsv_h/s/v:       Color jitter to handle different lighting conditions
     #                  (outdoor recycling vs. indoor bright bins).
 
-    print(f"\n[Training] Starting fine-tuning on {resolved_yaml}")
+    # ─── Resume Logic ─────────────────────────────────────────────────────────
+    # When --resume is set, YOLO loads the last.pt checkpoint and continues
+    # from the epoch it stopped at. All hyperparameters are read from the
+    # checkpoint's saved args, so you don't need to re-specify them.
+    last_pt = project_root / "training" / "runs" / "waste_yolo_run" / "weights" / "last.pt"
+    if resume:
+        if not last_pt.exists():
+            raise FileNotFoundError(
+                f"No checkpoint found to resume from: {last_pt}\n"
+                "Start a fresh run first (without --resume)."
+            )
+        print(f"[Training] Resuming from checkpoint: {last_pt}")
+        # When resuming, pass the checkpoint path as the model
+        # and set resume=True — YOLO handles the rest automatically
+        model = YOLO(str(last_pt))
+
+    print(f"\n[Training] Starting {'resumed' if resume else 'fresh'} training on {resolved_yaml}")
     print("[Training] This will take ~20–40 min on RTX 3050 for 50 epochs.\n")
 
     results = model.train(
@@ -183,6 +200,7 @@ def run_detection_training(
         batch=batch,
         workers=workers,
         device=device,
+        resume=resume,
 
         # Optimizer
         optimizer="AdamW",
@@ -271,6 +289,10 @@ if __name__ == "__main__":
         "--patience", type=int, default=10,
         help="Early stopping patience in epochs (default: 10)"
     )
+    parser.add_argument(
+        "--resume", action="store_true", default=False,
+        help="Resume training from last checkpoint (training/runs/waste_yolo_run/weights/last.pt)"
+    )
 
     args = parser.parse_args()
     run_detection_training(
@@ -280,4 +302,5 @@ if __name__ == "__main__":
         imgsz=args.imgsz,
         workers=args.workers,
         patience=args.patience,
+        resume=args.resume,
     )

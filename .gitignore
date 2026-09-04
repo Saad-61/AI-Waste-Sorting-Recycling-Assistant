@@ -80,6 +80,8 @@ frontend/dist/
 training/dataset/detection/
 training/dataset/classification/
 training/dataset/_resolved_data.yaml
+training/runs/
+training/evaluation_results.json
 
 # Raw datasets & logs
 data/
@@ -88,11 +90,12 @@ kle_log.txt
 meta_df.csv
 *.log
 
-
 # SQLite database
 *.sqlite3
 *.db
 backend/*.db
+app_data.db
+backend/app_data.db
 
 # IDE & Editor files
 .vscode/

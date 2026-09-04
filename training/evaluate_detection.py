@@ -71,6 +71,7 @@ def run_evaluation(weights_path: str = None, conf: float = 0.25, iou: float = 0.
     try:
         from ultralytics import YOLO
         import torch
+        import yaml
     except ImportError as e:
         print(f"[ERROR] {e}")
         sys.exit(1)
@@ -89,6 +90,16 @@ def run_evaluation(weights_path: str = None, conf: float = 0.25, iou: float = 0.
     if not data_yaml.exists():
         raise FileNotFoundError(f"data.yaml not found at: {data_yaml}")
 
+    # Fix Ultralytics Path Resolution by injecting absolute detection path
+    detection_root = (project_root / "training" / "dataset" / "detection").resolve()
+    with open(data_yaml) as f:
+        yaml_cfg = yaml.safe_load(f)
+    yaml_cfg["path"] = str(detection_root)
+
+    resolved_yaml = project_root / "training" / "dataset" / "_resolved_data.yaml"
+    with open(resolved_yaml, "w") as f:
+        yaml.dump(yaml_cfg, f, default_flow_style=False, sort_keys=False)
+
     device = "0" if torch.cuda.is_available() else "cpu"
     print(f"[Evaluation] Loading model: {model_path}")
     print(f"[Evaluation] Device: {'GPU' if device == '0' else 'CPU'}")
@@ -98,7 +109,7 @@ def run_evaluation(weights_path: str = None, conf: float = 0.25, iou: float = 0.
     print("[Evaluation] This evaluates every image in training/dataset/detection/images/test/\n")
 
     metrics = model.val(
-        data=str(data_yaml),
+        data=str(resolved_yaml),
         split="test",                  # Evaluate on held-out test split, not val
         imgsz=640,
         batch=16,
@@ -139,18 +150,34 @@ def run_evaluation(weights_path: str = None, conf: float = 0.25, iou: float = 0.
     }
 
     # ─── Per-class Metrics ────────────────────────────────────────────────────
-    # metrics.box.p, .r, .ap50, .ap are arrays indexed by class order in data.yaml
-    for idx, class_name in enumerate(CLASSES):
-        if idx < len(metrics.box.p):
-            p = float(metrics.box.p[idx])
-            r = float(metrics.box.r[idx])
+    # Ultralytics only returns metrics for classes present in the evaluated split.
+    # We map using metrics.box.ap_class_index to ensure 100% accurate class alignment.
+    class_indices = list(metrics.box.ap_class_index) if hasattr(metrics.box, "ap_class_index") else list(range(len(metrics.box.p)))
+
+    for i, cls_idx in enumerate(class_indices):
+        if cls_idx < len(CLASSES):
+            class_name = CLASSES[cls_idx]
+            p = float(metrics.box.p[i])
+            r = float(metrics.box.r[i])
             f1 = 2 * p * r / max(p + r, 1e-6)
             results["per_class"][class_name] = {
                 "precision": round(p, 4),
                 "recall": round(r, 4),
-                "map50": round(float(metrics.box.ap50[idx]), 4),
-                "map50_95": round(float(metrics.box.ap[idx]), 4),
+                "map50": round(float(metrics.box.ap50[i]), 4),
+                "map50_95": round(float(metrics.box.ap[i]), 4),
                 "f1": round(f1, 4),
+            }
+
+    # Populate any unobserved classes with 0.0
+    for cls_name in CLASSES:
+        if cls_name not in results["per_class"]:
+            results["per_class"][cls_name] = {
+                "precision": 0.0,
+                "recall": 0.0,
+                "map50": 0.0,
+                "map50_95": 0.0,
+                "f1": 0.0,
+                "note": "No instances present in evaluated test split",
             }
 
     # ─── Save Results ─────────────────────────────────────────────────────────
