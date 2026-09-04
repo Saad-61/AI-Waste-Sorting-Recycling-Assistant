@@ -10,7 +10,7 @@ from app.utils.image_processing import draw_detections, cv2_to_base64
 
 
 class InferencePipeline:
-    """Orchestrates detection, classification, XAI, and rule-based decision engine"""
+    """Orchestrates detection, classification, Grad-CAM XAI, and rule-based decision engine"""
 
     def __init__(self):
         self.detector = WasteDetector()
@@ -20,25 +20,24 @@ class InferencePipeline:
 
     def process_image(self, image: np.ndarray, filename: str = "upload.jpg") -> Dict[str, Any]:
         """
-        Executes end-to-end inference pipeline on an input image:
-        1. YOLO Waste Detection -> Bounding boxes
-        2. PyTorch Crop Classification -> Material validation
-        3. Explainability -> Grad-CAM saliency maps
-        4. Decision Engine -> Recyclability & Bin recommendation
-        5. Visual Annotation -> Bounding boxes rendering
+        End-to-end inference pipeline:
+        1. YOLO Waste Detection  → bounding boxes
+        2. CNN Crop Classification → material label + confidence
+        3. Grad-CAM Explainability → saliency heatmap
+        4. Decision Engine  → bin + disposal instructions
+        5. Visual Annotation → annotated image
         """
         start_time = time.time()
         h, w, _ = image.shape
 
-        # Step 1: Object Detection
+        # ── Step 1: Object Detection ──────────────────────────────────────────
         raw_detections = self.detector.detect(image)
 
         processed_items: List[Dict[str, Any]] = []
+        item_count = 0
 
-        # Step 2: Iterate detected regions
-        for idx, det in enumerate(raw_detections):
+        for det in raw_detections:
             x1, y1, x2, y2 = det["bbox"]
-            # Clamp coordinates to image boundaries
             x1, y1 = max(0, x1), max(0, y1)
             x2, y2 = min(w, x2), min(h, y2)
 
@@ -46,33 +45,51 @@ class InferencePipeline:
             if crop.size == 0:
                 continue
 
-            # Step 2b: Classification
+            # ── Step 2: Classification ────────────────────────────────────────
             classification = self.classifier.classify_crop(crop, det["label"])
 
-            # Step 2c: Explainability Heatmap
-            _, heatmap_b64 = self.explainability.generate_heatmap(crop)
+            # Two-tier false-positive filter: discard background clutter
+            if det["confidence"] < 0.45 and classification.get("is_uncertain"):
+                continue
+            if det["confidence"] < 0.38 and "foliage" in classification["material"].lower():
+                continue
 
-            # Step 2d: Rule-based Decision
+            # ── Step 3: Grad-CAM Heatmap ──────────────────────────────────────
+            # Pass the loaded classifier model so real Grad-CAM can be computed
+            classifier_model = getattr(self.classifier, "model", None)
+            _, heatmap_b64 = self.explainability.generate_heatmap(
+                crop,
+                classifier_model=classifier_model,
+            )
+
+            # Encode crop for display in the explainability modal
+            crop_b64 = cv2_to_base64(crop)
+
+            # ── Step 4: Rule-based Decision ───────────────────────────────────
             decision = self.decision_engine.evaluate(
                 label=det["label"],
                 material=classification["material"],
-                confidence=det["confidence"]
+                confidence=det["confidence"],
             )
 
+            item_count += 1
             processed_items.append({
-                "id": idx + 1,
+                "id": item_count,
                 "label": det["label"],
                 "confidence": det["confidence"],
+                "classifier_confidence": classification["confidence"],
                 "bbox": [x1, y1, x2, y2],
                 "material": classification["material"],
                 "bin": decision["disposal_bin"],
                 "recyclable": decision["recyclable"],
                 "badge_variant": decision["badge_variant"],
                 "instructions": decision["instructions"],
-                "heatmap": heatmap_b64
+                "heatmap": heatmap_b64,
+                "crop_image": crop_b64,
+                "is_uncertain": classification.get("is_uncertain", False),
             })
 
-        # Step 3: Draw annotated image
+        # ── Step 5: Draw annotated image ──────────────────────────────────────
         annotated_img = draw_detections(image, processed_items)
         annotated_b64 = cv2_to_base64(annotated_img)
 
@@ -81,7 +98,7 @@ class InferencePipeline:
             bins = [item["bin"] for item in processed_items]
             primary_bin = max(set(bins), key=bins.count)
         else:
-            primary_bin = "Unknown / No Objects"
+            primary_bin = "Unknown / No Objects Detected"
 
         elapsed_ms = (time.time() - start_time) * 1000
 
@@ -91,5 +108,5 @@ class InferencePipeline:
             "primary_bin": primary_bin,
             "processing_time_ms": round(elapsed_ms, 1),
             "annotated_image": annotated_b64,
-            "items": processed_items
+            "items": processed_items,
         }
