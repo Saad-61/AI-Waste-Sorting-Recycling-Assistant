@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, History, RefreshCw, Calendar, Clock, ChevronRight } from 'lucide-react';
+import { Download, History, RefreshCw, Calendar, Clock, ChevronRight, Package } from 'lucide-react';
 import { getScanHistory, getExportCsvUrl } from '../services/api';
 import Card from './ui/Card';
 import Badge from './ui/Badge';
@@ -29,14 +29,14 @@ export const HistoryDrawer = () => {
   return (
     <div className="flex flex-col gap-6">
       {/* Header & Export controls */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-slate-800 rounded-xl">
-            <History className="w-5 h-5 text-emerald-400" />
+          <div className="p-2 bg-slate-100 rounded-xl border border-slate-200 text-slate-800">
+            <History className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">Scan History & Telemetry</h3>
-            <p className="text-xs text-slate-400">Past detection sessions and disposal audits</p>
+            <h3 className="text-base font-display font-bold text-slate-900">Scan History & Stream Records</h3>
+            <p className="text-xs text-slate-500">Chronological ledger of past material sorting sessions</p>
           </div>
         </div>
 
@@ -47,7 +47,7 @@ export const HistoryDrawer = () => {
           </Button>
 
           <a href={getExportCsvUrl()} download="waste_scan_history.csv">
-            <Button variant="outline" size="sm">
+            <Button variant="primary" size="sm">
               <Download className="w-3.5 h-3.5 mr-1" />
               Export CSV
             </Button>
@@ -58,15 +58,15 @@ export const HistoryDrawer = () => {
       {/* Filter pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {['All', 'Recyclable', 'Organic', 'Hazardous', 'General Waste'].map((b) => {
-          const active = (b === 'All' && !filter) || filter === b;
+          const isSelected = (filter === null && b === 'All') || filter === b;
           return (
             <button
               key={b}
               onClick={() => setFilter(b === 'All' ? null : b)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
-                active
-                  ? 'bg-emerald-500 text-slate-950 shadow-xs'
-                  : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+              className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+                isSelected
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
               {b}
@@ -75,43 +75,55 @@ export const HistoryDrawer = () => {
         })}
       </div>
 
-      {/* History Records List */}
-      <div className="flex flex-col gap-3">
-        {history.length === 0 ? (
-          <div className="p-12 text-center border border-slate-800 rounded-2xl bg-slate-900/30 text-slate-500 text-sm">
-            {loading ? 'Loading scan history...' : 'No scan records recorded yet.'}
-          </div>
-        ) : (
-          history.map((record) => (
-            <Card key={record.id} hover className="p-4 bg-slate-900/60 border-slate-800">
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  <span>
-                    {record.created_at ? new Date(record.created_at).toLocaleString() : 'Recent'}
-                  </span>
-                  <span className="text-slate-600">•</span>
-                  <Clock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>{record.processing_time_ms} ms</span>
+      {/* History table / card list */}
+      {loading && history.length === 0 ? (
+        <div className="p-12 text-center text-xs text-slate-400 font-mono">
+          Loading scan history...
+        </div>
+      ) : history.length === 0 ? (
+        <div className="p-12 bg-white rounded-2xl border border-slate-200 text-center">
+          <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-slate-700 font-display">No records found</p>
+          <p className="text-xs text-slate-400 mt-1">Upload or capture an image to create the first session entry.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {history.map((record) => (
+            <div
+              key={record.id}
+              className="p-4 rounded-xl bg-white border border-slate-200 shadow-nordic hover:shadow-nordic-hover transition flex items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-mono text-xs font-bold text-slate-800">
+                  #{record.id}
                 </div>
-
-                <Badge variant={record.primary_bin === 'Recyclable' ? 'success' : 'secondary'}>
-                  {record.primary_bin || 'General'}
-                </Badge>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-900 text-xs font-display">
+                      {record.total_objects} {record.total_objects === 1 ? 'Object' : 'Objects'} Detected
+                    </span>
+                    <Badge variant="primary" className="text-[10px] py-0 px-2">
+                      {record.primary_disposal_bin}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400 mt-1">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {record.processing_time_ms} ms
+                    </span>
+                    <span>·</span>
+                    <span>{new Date(record.created_at).toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-semibold text-white">
-                  {record.filename || `Scan #${record.id}`}
-                </span>
-                <span className="text-xs text-emerald-400 font-medium">
-                  {record.total_objects} item(s) classified
-                </span>
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                <span className="text-slate-700 font-mono text-[11px]">{record.filename}</span>
               </div>
-            </Card>
-          ))
-        )}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

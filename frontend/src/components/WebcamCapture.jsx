@@ -1,104 +1,102 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Camera, CameraOff, Sparkles, RefreshCw } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, RefreshCw, CircleDot, AlertCircle } from 'lucide-react';
 import Button from './ui/Button';
 
-export const WebcamCapture = ({ onCapture, isLoading = false }) => {
+export const WebcamCapture = ({ onCapture, isAnalyzing }) => {
+  const [stream, setStream] = useState(null);
+  const [error, setError] = useState(null);
   const videoRef = useRef(null);
-  const [streamActive, setStreamActive] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(null);
+  const canvasRef = useRef(null);
 
   const startCamera = async () => {
-    setErrorMessage(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, facingMode: 'environment' },
+      setError(null);
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } }
       });
+      setStream(mediaStream);
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setStreamActive(true);
+        videoRef.current.srcObject = mediaStream;
       }
     } catch (err) {
-      setErrorMessage('Could not access webcam. Please verify camera permissions.');
       console.error('Webcam error:', err);
+      setError('Unable to access camera. Please verify camera permissions in your browser.');
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject;
-      const tracks = stream.getTracks();
-      tracks.forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
-      setStreamActive(false);
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
     }
   };
 
   useEffect(() => {
-    return () => {
-      stopCamera();
-    };
+    startCamera();
+    return () => stopCamera();
   }, []);
 
-  const captureFrame = () => {
-    if (!videoRef.current) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth || 640;
-    canvas.height = videoRef.current.videoHeight || 480;
+  const takeSnapshot = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    const base64Data = canvas.toDataURL('image/jpeg', 0.85);
-    onCapture(base64Data);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const base64Image = canvas.toDataURL('image/jpeg', 0.95);
+    onCapture(base64Image);
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800">
-      <div className="relative w-full max-w-xl aspect-video bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`w-full h-full object-cover ${streamActive ? 'block' : 'hidden'}`}
-        />
-
-        {!streamActive && (
-          <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500">
-            <CameraOff className="w-12 h-12 mb-3 stroke-1 text-slate-600" />
-            <p className="text-sm font-medium text-slate-400 mb-1">Webcam Feed Inactive</p>
-            <p className="text-xs text-slate-600 max-w-xs">
-              Click Start Camera to inspect physical items directly under your lens.
-            </p>
+    <div className="flex flex-col items-center gap-4 w-full">
+      <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 min-h-[360px] flex items-center justify-center shadow-nordic">
+        {error ? (
+          <div className="p-8 text-center max-w-sm flex flex-col items-center">
+            <AlertCircle className="w-8 h-8 text-amber-500 mb-3" />
+            <p className="text-xs text-slate-300 mb-4 leading-relaxed">{error}</p>
+            <Button variant="outline" size="sm" onClick={startCamera}>
+              Retry Permissions
+            </Button>
           </div>
+        ) : (
+          <>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover max-h-[500px]"
+            />
+            <canvas ref={canvasRef} className="hidden" />
+
+            {/* Live Indicator Chip */}
+            <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-700/80 flex items-center gap-2 text-xs font-mono text-white">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              Live Sensor Active
+            </div>
+          </>
         )}
 
-        {errorMessage && (
-          <div className="absolute inset-0 bg-slate-950/90 flex items-center justify-center p-6 text-center text-rose-400 text-xs">
-            {errorMessage}
+        {isAnalyzing && (
+          <div className="absolute inset-0 bg-slate-900/85 backdrop-blur-sm flex flex-col items-center justify-center z-10 text-white">
+            <div className="w-8 h-8 border-2 border-slate-500 border-t-emerald-400 rounded-full animate-spin mb-3" />
+            <span className="text-xs font-semibold font-display">Executing Inference Engine...</span>
           </div>
         )}
       </div>
 
+      {/* Camera Actions */}
       <div className="flex items-center gap-3">
-        {!streamActive ? (
-          <Button onClick={startCamera} variant="primary">
-            <Camera className="w-4 h-4 mr-2" />
-            Start Camera
-          </Button>
-        ) : (
-          <>
-            <Button
-              onClick={captureFrame}
-              variant="primary"
-              disabled={isLoading}
-            >
-              <Sparkles className="w-4 h-4 mr-2" />
-              {isLoading ? 'Processing...' : 'Scan Item'}
-            </Button>
-            <Button onClick={stopCamera} variant="secondary">
-              Stop Camera
-            </Button>
-          </>
-        )}
+        <button
+          onClick={takeSnapshot}
+          disabled={isAnalyzing || !stream}
+          className="flex items-center gap-2 px-6 py-3 rounded-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-medium text-xs tracking-wide shadow-md transition"
+        >
+          <CircleDot className="w-4 h-4 text-emerald-400" />
+          Capture & Analyze Scene
+        </button>
       </div>
     </div>
   );

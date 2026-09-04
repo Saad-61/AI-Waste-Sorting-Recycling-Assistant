@@ -1,71 +1,103 @@
 import React, { useState } from 'react';
-import { Eye, Layers, ZoomIn } from 'lucide-react';
+import { Eye, Layers, Maximize2, ZoomIn } from 'lucide-react';
 import Badge from './ui/Badge';
 
 export const AnnotatedViewer = ({
-  originalImage,
   annotatedImage,
+  originalImage,
   items = [],
-  onSelectItem,
-  selectedItemId = null,
+  onSelectObject,
+  onOpenFullscreen
 }) => {
-  const [showAnnotated, setShowAnnotated] = useState(true);
+  const [viewMode, setViewMode] = useState('annotated'); // 'annotated' | 'original'
+  const [isHovered, setIsHovered] = useState(false);
 
-  const displayImage = showAnnotated && annotatedImage ? annotatedImage : originalImage;
-
-  if (!displayImage) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 border border-slate-800 rounded-2xl bg-slate-900/30 text-slate-500">
-        <Layers className="w-12 h-12 mb-2 stroke-1" />
-        <p className="text-sm">No image loaded for annotation preview.</p>
-      </div>
-    );
-  }
+  const displayImage = viewMode === 'annotated' ? annotatedImage : originalImage;
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Controls toolbar */}
-      <div className="flex items-center justify-between px-1">
+      {/* Viewport Top Bar */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Detection Viewport
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 font-mono">
+            Optical Viewport
           </span>
-          <Badge variant="primary">{items.length} detected</Badge>
+          <Badge variant="outline" className="text-[11px] font-mono py-0 px-2 border-slate-300 text-slate-700 bg-white">
+            {items.length} {items.length === 1 ? 'Target' : 'Targets'}
+          </Badge>
         </div>
 
-        {annotatedImage && (
-          <div className="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700 text-xs">
+        {/* View Toggle */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-xs font-medium border border-slate-300/80">
             <button
-              onClick={() => setShowAnnotated(true)}
-              className={`px-3 py-1 rounded-md transition ${
-                showAnnotated
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+              onClick={() => setViewMode('annotated')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition ${
+                viewMode === 'annotated'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Annotated
+              <Layers className="w-3 h-3 text-emerald-700" />
+              Detection
             </button>
             <button
-              onClick={() => setShowAnnotated(false)}
-              className={`px-3 py-1 rounded-md transition ${
-                !showAnnotated
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+              onClick={() => setViewMode('original')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition ${
+                viewMode === 'original'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
+              <Eye className="w-3 h-3 text-slate-500" />
               Original
             </button>
           </div>
-        )}
+
+          {onOpenFullscreen && (
+            <button
+              onClick={onOpenFullscreen}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition shadow-sm"
+              title="Open Fullscreen Studio"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              Fullscreen
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Main Image Container */}
-      <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl flex items-center justify-center min-h-[320px] max-h-[500px]">
+      {/* Main Image Frame */}
+      <div
+        className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center min-h-[380px] max-h-[580px] shadow-nordic cursor-pointer transition"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={onOpenFullscreen}
+      >
         <img
           src={displayImage}
-          alt="Waste analysis viewport"
-          className="w-full h-auto max-h-[500px] object-contain"
+          alt="Waste detection view"
+          className="w-full h-full object-contain max-h-[560px] rounded-xl"
         />
+
+        {/* Hover Fullscreen Prompt */}
+        <div
+          className={`absolute inset-0 bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center transition-opacity duration-200 ${
+            isHovered ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <div className="bg-slate-900/90 text-white px-4 py-2 rounded-full text-xs font-medium flex items-center gap-2 shadow-lg transform translate-y-1 group-hover:translate-y-0 transition-transform">
+            <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
+            Click to Expand & Inspect Fullscreen
+          </div>
+        </div>
+
+        {/* Discrete bottom timestamp info */}
+        <div className="absolute bottom-3 right-3 pointer-events-none">
+          <span className="px-2 py-1 bg-slate-900/80 text-white text-[10px] font-mono rounded backdrop-blur-sm">
+            {viewMode === 'annotated' ? 'YOLOv8s + MobileNetV3' : 'Raw Capture'}
+          </span>
+        </div>
       </div>
     </div>
   );
