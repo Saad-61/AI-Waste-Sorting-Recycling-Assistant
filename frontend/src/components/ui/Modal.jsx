@@ -13,15 +13,15 @@ export const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl'
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141210]/75 backdrop-blur-sm animate-in fade-in duration-150">
       <div
-        className={`bg-white border border-slate-200 rounded-2xl w-full ${maxWidth} overflow-hidden shadow-nordic-modal transition-all`}
+        className={`bg-[#2E2A27] border border-[#4A433D] rounded-2xl w-full ${maxWidth} overflow-hidden shadow-warm-modal transition-all`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="text-sm font-display font-bold text-slate-900 tracking-tight">{title}</h3>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#4A433D] bg-[#36312D]">
+          <h3 className="text-sm font-display font-bold text-[#F4EFEA] tracking-tight">{title}</h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-200/60 transition"
+            className="text-[#B0A698] hover:text-[#F4EFEA] p-1.5 rounded-lg hover:bg-[#4A433D] transition"
           >
             <X className="w-4 h-4" />
           </button>

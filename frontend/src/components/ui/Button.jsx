@@ -13,12 +13,12 @@ export const Button = ({
   const baseClasses = "inline-flex items-center justify-center font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
   const variants = {
-    primary: "bg-slate-900 hover:bg-slate-800 text-white shadow-sm focus:ring-slate-900",
-    secondary: "bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-sm focus:ring-slate-400",
-    emerald: "bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm focus:ring-emerald-600",
-    outline: "bg-transparent border border-slate-300 hover:bg-slate-100 text-slate-700 focus:ring-slate-400",
-    danger: "bg-rose-600 hover:bg-rose-700 text-white shadow-sm focus:ring-rose-500",
-    ghost: "bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900 focus:ring-slate-400"
+    primary: "bg-[#36312D] hover:bg-[#433D37] text-[#F4EFEA] border border-[#4A433D] shadow-warm-sm focus:ring-[#635A52]",
+    secondary: "bg-[#2E2A27] hover:bg-[#36312D] text-[#F4EFEA] border border-[#4A433D] shadow-warm-sm focus:ring-[#635A52]",
+    evergreen: "bg-[#1F5A3B] hover:bg-[#28734C] text-white shadow-warm-sm focus:ring-[#1F5A3B]",
+    outline: "bg-transparent border border-[#4A433D] hover:bg-[#36312D] text-[#F4EFEA] focus:ring-[#635A52]",
+    danger: "bg-[#872D2D] hover:bg-[#A13737] text-white shadow-warm-sm focus:ring-[#872D2D]",
+    ghost: "bg-transparent hover:bg-[#36312D] text-[#B0A698] hover:text-[#F4EFEA] focus:ring-[#635A52]"
   };
 
   const sizes = {

@@ -22,7 +22,7 @@ export const Dropzone = ({ onFileSelect, isAnalyzing }) => {
       if (file.type.startsWith('image/')) {
         onFileSelect(file);
       } else {
-        alert('Please drop an image file (JPG, PNG, WebP).');
+        alert('Please select an image file (JPG, PNG, WebP).');
       }
     }
   };
@@ -40,10 +40,10 @@ export const Dropzone = ({ onFileSelect, isAnalyzing }) => {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative rounded-2xl border-2 border-dashed transition-all duration-200 p-10 text-center cursor-pointer bg-white flex flex-col items-center justify-center min-h-[260px] shadow-nordic ${
+        className={`relative rounded-2xl border-2 border-dashed transition-all duration-200 p-10 text-center cursor-pointer bg-[#2E2A27] flex flex-col items-center justify-center min-h-[260px] shadow-warm-sm ${
           isDragOver
-            ? 'border-emerald-700 bg-emerald-50/40 scale-[0.99]'
-            : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50/50'
+            ? 'border-[#34D399] bg-[#1F4334] scale-[0.99]'
+            : 'border-[#4A433D] hover:border-[#635A52] hover:bg-[#342F2B]'
         }`}
       >
         <input
@@ -55,27 +55,27 @@ export const Dropzone = ({ onFileSelect, isAnalyzing }) => {
         />
 
         {/* Upload Icon Disc */}
-        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 mb-4 shadow-sm">
+        <div className="w-14 h-14 rounded-2xl bg-[#36312D] border border-[#4A433D] flex items-center justify-center text-[#34D399] mb-4 shadow-sm">
           <UploadCloud className="w-7 h-7" />
         </div>
 
-        <h3 className="font-display font-bold text-slate-900 text-base mb-1">
-          Upload Scene for Optical Material Analysis
+        <h3 className="font-display font-bold text-[#F4EFEA] text-base mb-1">
+          Upload Scene for Optical Material Sorting
         </h3>
-        <p className="text-slate-500 text-xs max-w-sm mb-4">
-          Drag & drop any photo containing waste items, or click to browse files from your disk.
+        <p className="text-[#B0A698] text-xs max-w-sm mb-4">
+          Drag & drop photos of waste objects, or click to browse files from your computer.
         </p>
 
-        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+        <div className="flex items-center gap-2 text-[11px] font-mono text-[#B0A698] bg-[#36312D] px-3.5 py-1 rounded-full border border-[#4A433D]">
           <span>Supported: JPG, PNG, WEBP</span>
           <span>·</span>
           <span>Max 15MB</span>
         </div>
 
         {isAnalyzing && (
-          <div className="absolute inset-0 bg-white/90 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center z-10">
-            <div className="w-8 h-8 border-2 border-slate-300 border-t-emerald-700 rounded-full animate-spin mb-3" />
-            <span className="text-xs font-semibold text-slate-800 font-display">
+          <div className="absolute inset-0 bg-[#242220]/92 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center z-10">
+            <div className="w-8 h-8 border-2 border-[#4A433D] border-t-[#34D399] rounded-full animate-spin mb-3" />
+            <span className="text-xs font-semibold text-[#F4EFEA] font-display">
               Processing Multi-Stage Detection & Feature Maps...
             </span>
           </div>

@@ -8,12 +8,23 @@
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Space Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Muted Warm Slate & Stone Studio Tokens - Comfortable & Eye-Friendly */
+  --bg-dune: #242220;
+  --bg-card: #2E2A27;
+  --bg-subtle: #36312D;
+  --border-sand: #4A433D;
+  --border-hover: #635A52;
+  --text-espresso: #F4EFEA;
+  --text-umber: #B0A698;
+  --accent-forest: #34D399;
+  --accent-terracotta: #FB923C;
 }
 
 @layer base {
   body {
-    background-color: #F8F9FA;
-    color: #0F172A;
+    background-color: #242220;
+    color: #F4EFEA;
     font-family: var(--font-sans);
     letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
@@ -22,6 +33,7 @@
   h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
     letter-spacing: -0.025em;
+    color: #F4EFEA;
   }
 
   .font-mono {
@@ -29,40 +41,44 @@
   }
 }
 
-/* Subtle architectural dot grid background */
-.bg-dot-grid {
-  background-image: radial-gradient(#CBD5E1 1px, transparent 1px);
+/* Warm Slate Dot Grid */
+.bg-warm-grid {
+  background-image: radial-gradient(#3E3832 1.2px, transparent 1.2px);
   background-size: 24px 24px;
 }
 
-/* Clean Scandinavian card shadows */
-.shadow-nordic {
-  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+/* Soft Matte Shadows */
+.shadow-warm-sm {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.28), 0 1px 2px -1px rgba(0, 0, 0, 0.18);
 }
 
-.shadow-nordic-hover {
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+.shadow-warm-md {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.35), 0 2px 4px -2px rgba(0, 0, 0, 0.22);
 }
 
-.shadow-nordic-modal {
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.18);
+.shadow-warm-hover {
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.45), 0 6px 10px -4px rgba(0, 0, 0, 0.28);
 }
 
-/* Custom Minimalist Scrollbar */
+.shadow-warm-modal {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65);
+}
+
+/* Custom Warm Slate Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: #242220;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #4A433D;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #635A52;
 }
