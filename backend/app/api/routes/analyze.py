@@ -53,7 +53,8 @@ async def analyze_upload(
         filename=result["filename"],
         total_objects=result["total_objects"],
         primary_disposal_bin=result["primary_bin"],
-        processing_time_ms=result["processing_time_ms"]
+        processing_time_ms=result["processing_time_ms"],
+        image_base64=result.get("annotated_image")
     )
     db.add(scan_entry)
     db.flush()
@@ -101,7 +102,8 @@ async def analyze_base64(
         filename=result["filename"],
         total_objects=result["total_objects"],
         primary_disposal_bin=result["primary_bin"],
-        processing_time_ms=result["processing_time_ms"]
+        processing_time_ms=result["processing_time_ms"],
+        image_base64=result.get("annotated_image")
     )
     db.add(scan_entry)
     db.flush()

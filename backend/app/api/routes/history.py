@@ -34,6 +34,7 @@ def get_history(
             "total_objects": r.total_objects,
             "primary_bin": r.primary_disposal_bin,
             "processing_time_ms": r.processing_time_ms,
+            "image_base64": r.image_base64,
             "detected_items": [
                 {
                     "label": it.label,

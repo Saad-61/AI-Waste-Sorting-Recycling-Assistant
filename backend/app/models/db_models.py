@@ -15,6 +15,7 @@ class ScanRecord(Base):
     total_objects = Column(Integer, default=0)
     primary_disposal_bin = Column(String(50), nullable=True)
     processing_time_ms = Column(Float, default=0.0)
+    image_base64 = Column(Text, nullable=True)
 
     # Relationships
     detected_items = relationship("DetectedItem", back_populates="scan", cascade="all, delete-orphan")

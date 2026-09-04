@@ -23,7 +23,23 @@ def get_db():
         db.close()
 
 
+from sqlalchemy import text
+
+
 def init_db():
-    """Initializes database tables"""
+    """Initializes database tables and auto-migrates missing columns"""
     import app.models.db_models  # noqa: F401
     Base.metadata.create_all(bind=engine)
+
+    # Auto-migrate image_base64 column if missing in existing SQLite database
+    try:
+        with engine.connect() as conn:
+            # Check existing columns
+            res = conn.execute(text("PRAGMA table_info(scan_records);")).fetchall()
+            cols = [r[1] for r in res]
+            if "image_base64" not in cols:
+                conn.execute(text("ALTER TABLE scan_records ADD COLUMN image_base64 TEXT;"))
+                conn.commit()
+    except Exception as e:
+        print(f"Database migration notice: {e}")
+
