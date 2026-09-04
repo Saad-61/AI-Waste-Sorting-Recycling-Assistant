@@ -45,13 +45,21 @@ class InferencePipeline:
             if crop.size == 0:
                 continue
 
+            # ── Minimum box size guard ────────────────────────────────────────
+            # Tiny boxes (< 20×20 px) are almost always noise or leaf-edge artefacts
+            crop_h, crop_w = crop.shape[:2]
+            if crop_h < 20 or crop_w < 20:
+                continue
+
             # ── Step 2: Classification ────────────────────────────────────────
             classification = self.classifier.classify_crop(crop, det["label"])
 
             # Two-tier false-positive filter: discard background clutter
-            if det["confidence"] < 0.45 and classification.get("is_uncertain"):
+            # Tier A: low detector confidence + uncertain classifier → drop
+            if det["confidence"] < 0.50 and classification.get("is_uncertain"):
                 continue
-            if det["confidence"] < 0.38 and "foliage" in classification["material"].lower():
+            # Tier B: foliage confirmed by heuristic with weak YOLO confidence → drop
+            if det["confidence"] < 0.42 and "foliage" in classification["material"].lower():
                 continue
 
             # ── Step 3: Grad-CAM Heatmap ──────────────────────────────────────

@@ -64,12 +64,13 @@ class WasteDetector:
         h, w, _ = image.shape
         total_image_area = float(h * w)
 
+        # Run YOLO inference
         results = self.model.predict(
             source=image,
-            conf=conf,
-            iou=settings.IOU_THRESHOLD,
-            imgsz=1024,         # High-resolution inference for fine-grained small waste detection
-            agnostic_nms=True,  # Suppress duplicate overlapping boxes across different classes
+            conf=0.32,          # Raised from 0.28 — filters more spurious leaf/texture noise
+            iou=0.45,
+            imgsz=1024,         # High-resolution inference for fine-grained detection
+            agnostic_nms=False, # Standard NMS allows adjacent objects of same class
             device=settings.DEVICE,
             verbose=False
         )
@@ -88,8 +89,8 @@ class WasteDetector:
                 box_h = max(0, coords[3] - coords[1])
                 box_area_ratio = (box_w * box_h) / max(total_image_area, 1.0)
 
-                # Filter out giant background hallucinations (e.g. handrails, walls) unless confidence is very high
-                if box_area_ratio > 0.50 and confidence < 0.75:
+                # Filter out giant background hallucinations (e.g. handrails, walls) unless confidence is high
+                if box_area_ratio > 0.55 and confidence < 0.70:
                     continue
 
                 detections.append({
