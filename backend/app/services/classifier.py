@@ -86,11 +86,11 @@ class WasteClassifier:
             gray     = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
             variance = cv2.Laplacian(gray, cv2.CV_64F).var()
 
-            # Raised thresholds: green > 0.55 (was 0.45), brown > 0.60 (was 0.55)
+            # Foliage thresholds: green > 0.35 or brown leaf > 0.50 or low-texture greenery
             return (
-                (green_ratio > 0.55)
-                or (brown_ratio > 0.60)
-                or (variance < 18.0 and green_ratio > 0.30)
+                (green_ratio > 0.35)
+                or (brown_ratio > 0.50)
+                or (variance < 25.0 and green_ratio > 0.20)
             )
         except Exception:
             return False
@@ -131,7 +131,7 @@ class WasteClassifier:
             print(f"[WasteClassifier] Inference warning ({e}).")
             return None, 0.0, None
 
-    def classify_crop(self, crop: np.ndarray, detected_label: Optional[str] = None) -> Dict[str, Any]:
+    def classify_crop(self, crop: np.ndarray, detected_label: Optional[str] = None, detector_confidence: float = 1.0) -> Dict[str, Any]:
         """
         Classifies a cropped image region with three-stage open-set protection:
 
@@ -158,10 +158,12 @@ class WasteClassifier:
 
         # ── Stage 1: Foliage / ground heuristic ──────────────────────────────
         label_lower = (detected_label or "").lower()
-        waste_keywords = ["plastic", "glass", "metal", "cardboard", "paper", "can", "bottle"]
-        is_known_waste = any(kw in label_lower for kw in waste_keywords)
+        # Only trust very confident detector hits (>= 0.70) to override foliage heuristic
+        is_definite_waste = detector_confidence >= 0.70 and any(
+            kw in label_lower for kw in ["glass", "metal", "cardboard", "paper", "can", "bottle"]
+        )
 
-        if self._is_foliage_or_ground(crop) and not is_known_waste:
+        if self._is_foliage_or_ground(crop) and not is_definite_waste:
             return {
                 "material": "Organic Foliage / Plant Matter",
                 "confidence": 0.88,

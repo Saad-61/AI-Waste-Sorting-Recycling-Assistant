@@ -52,14 +52,18 @@ class InferencePipeline:
                 continue
 
             # ── Step 2: Classification ────────────────────────────────────────
-            classification = self.classifier.classify_crop(crop, det["label"])
+            classification = self.classifier.classify_crop(
+                crop,
+                detected_label=det["label"],
+                detector_confidence=det["confidence"]
+            )
 
             # Two-tier false-positive filter: discard background clutter
             # Tier A: low detector confidence + uncertain classifier → drop
             if det["confidence"] < 0.50 and classification.get("is_uncertain"):
                 continue
-            # Tier B: foliage confirmed by heuristic with weak YOLO confidence → drop
-            if det["confidence"] < 0.42 and "foliage" in classification["material"].lower():
+            # Tier B: foliage confirmed by heuristic → drop non-waste plant matter
+            if "foliage" in classification["material"].lower():
                 continue
 
             # ── Step 3: Grad-CAM Heatmap ──────────────────────────────────────

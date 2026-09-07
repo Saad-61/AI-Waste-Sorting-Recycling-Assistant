@@ -67,7 +67,7 @@ class WasteDetector:
         # Run YOLO inference
         results = self.model.predict(
             source=image,
-            conf=0.32,          # Raised from 0.28 — filters more spurious leaf/texture noise
+            conf=0.35,          # Filter spurious leaf/texture noise below 35%
             iou=0.45,
             imgsz=1024,         # High-resolution inference for fine-grained detection
             agnostic_nms=False, # Standard NMS allows adjacent objects of same class

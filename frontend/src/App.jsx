@@ -21,6 +21,7 @@ import ObjectCard from './components/ObjectCard';
 import ExplainabilityModal from './components/ExplainabilityModal';
 import FullscreenLightbox from './components/FullscreenLightbox';
 import HistoryDrawer from './components/HistoryDrawer';
+import BrandHeader from './components/BrandHeader';
 import Card from './components/ui/Card';
 import Badge from './components/ui/Badge';
 import Button from './components/ui/Button';
@@ -98,22 +99,7 @@ export function App() {
       {/* Top Header */}
       <header className="border-b border-[#4A433D] bg-[#242220]/90 backdrop-blur-md sticky top-0 z-30 shadow-warm-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1F5A3B] text-white flex items-center justify-center shadow-warm-sm">
-              <Recycle className="w-5 h-5 text-emerald-300" />
-            </div>
-            <div>
-              <h1 className="text-sm font-display font-bold tracking-tight text-[#F4EFEA] flex items-center gap-2">
-                EcoSort Studio
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#1C3B2E] text-[#5EEAD4] border border-[#2D7351] font-mono font-medium">
-                  v2.0
-                </span>
-              </h1>
-              <p className="text-[11px] text-[#B0A698] hidden sm:block">
-                Autonomous Optical Waste & Material Sorting
-              </p>
-            </div>
-          </div>
+          <BrandHeader />
 
           {/* Navigation Controls */}
           <div className="flex items-center gap-3">
@@ -153,12 +139,6 @@ export function App() {
                 <History className="w-3.5 h-3.5 text-[#34D399]" />
                 Ledger History
               </button>
-            </div>
-
-            {/* Engine Status Pill */}
-            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#2E2A27] border border-[#4A433D] text-[11px] font-mono text-[#B0A698]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              Engine: Online
             </div>
           </div>
         </div>

@@ -288,37 +288,76 @@ def train_classifier(args):
     # ── Loss (weighted CE + label smoothing) ─────────────────────────────────
     criterion = nn.CrossEntropyLoss(weight=class_weights.to(device), label_smoothing=0.1)
 
-    # ── Model ────────────────────────────────────────────────────────────────
-    model = get_model(args.arch, args.num_classes).to(device)
-
-    # ── Phase 1: Frozen backbone head warm-up ────────────────────────────────
-    freeze_ep = min(5, max(1, args.epochs // 4))
-    freeze_backbone(model, args.arch)
-    head_params = [p for p in model.parameters() if p.requires_grad]
-    opt_head = torch.optim.AdamW(head_params, lr=args.lr * 10, weight_decay=1e-4)
-    print(f"\n[Phase 1] Frozen backbone  {freeze_ep} warm-up epochs  (head lr={args.lr * 10:.5f})")
-    for ep in range(1, freeze_ep + 1):
-        tr_loss, tr_acc, _, _ = run_epoch(model, train_loader, criterion, opt_head, device, True, False)
-        print(f"  Epoch [{ep:02d}/{freeze_ep:02d}]  Loss: {tr_loss:.4f}  Acc: {tr_acc:.2f}%")
-
-    # ── Phase 2: Full fine-tune + cosine LR ──────────────────────────────────
-    unfreeze_all(model)
-    fine_ep   = args.epochs - freeze_ep
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
-    T0        = max(8, fine_ep // 2)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-                    optimizer, T_0=T0, T_mult=1, eta_min=1e-6)
-
     output_path = Path(args.output)
     if not output_path.is_absolute():
         output_path = (project_root / output_path).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_best   = output_path.with_suffix(".best_tmp.pth")
     best_acc   = 0.0
+    start_fine_ep = 0
+    saved_opt_state = None
+    saved_sched_state = None
     final_preds, final_labels = [], []
 
-    print(f"\n[Phase 2] Full fine-tune  {fine_ep} epochs  (lr={args.lr:.5f}  cosine T0={T0})")
-    for ep in range(1, fine_ep + 1):
+    resumed = False
+    if args.resume:
+        checkpoint_target = tmp_best if tmp_best.exists() else (output_path if output_path.exists() else None)
+        if checkpoint_target:
+            print(f"\n[Classifier] Resuming from checkpoint: {checkpoint_target}")
+            try:
+                loaded = torch.load(checkpoint_target, map_location=device, weights_only=False)
+                if isinstance(loaded, dict) and "model" in loaded:
+                    model = loaded["model"]
+                    start_fine_ep = loaded.get("epoch", 0)
+                    best_acc = loaded.get("best_acc", 0.0)
+                    saved_opt_state = loaded.get("optimizer_state")
+                    saved_sched_state = loaded.get("scheduler_state")
+                    print(f"[Classifier] Resumed from Epoch {start_fine_ep} with Best Val Acc: {best_acc:.2f}%")
+                else:
+                    model = loaded
+                    start_fine_ep = 10
+                    print(f"[Classifier] Loaded raw model weights. Continuing from Epoch {start_fine_ep}.")
+                resumed = True
+            except Exception as e:
+                print(f"[Classifier] Failed to load checkpoint ({e}). Starting fresh.")
+
+    if not resumed:
+        # ── Model ────────────────────────────────────────────────────────────────
+        model = get_model(args.arch, args.num_classes).to(device)
+
+        # ── Phase 1: Frozen backbone head warm-up ────────────────────────────────
+        freeze_ep = min(5, max(1, args.epochs // 4))
+        freeze_backbone(model, args.arch)
+        head_params = [p for p in model.parameters() if p.requires_grad]
+        opt_head = torch.optim.AdamW(head_params, lr=args.lr * 10, weight_decay=1e-4)
+        print(f"\n[Phase 1] Frozen backbone  {freeze_ep} warm-up epochs  (head lr={args.lr * 10:.5f})")
+        for ep in range(1, freeze_ep + 1):
+            tr_loss, tr_acc, _, _ = run_epoch(model, train_loader, criterion, opt_head, device, True, False)
+            print(f"  Epoch [{ep:02d}/{freeze_ep:02d}]  Loss: {tr_loss:.4f}  Acc: {tr_acc:.2f}%")
+        fine_ep = args.epochs - freeze_ep
+    else:
+        fine_ep = max(start_fine_ep + 5, args.epochs - 5)
+
+    # ── Phase 2: Full fine-tune + cosine LR ──────────────────────────────────
+    unfreeze_all(model)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    if saved_opt_state is not None:
+        try:
+            optimizer.load_state_dict(saved_opt_state)
+        except Exception:
+            pass
+
+    T0 = max(8, fine_ep // 2)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                    optimizer, T_0=T0, T_mult=1, eta_min=1e-6)
+    if saved_sched_state is not None:
+        try:
+            scheduler.load_state_dict(saved_sched_state)
+        except Exception:
+            pass
+
+    print(f"\n[Phase 2] Full fine-tune  Epoch [{start_fine_ep + 1:02d}/{fine_ep:02d}]  (lr={args.lr:.5f}  cosine T0={T0})")
+    for ep in range(start_fine_ep + 1, fine_ep + 1):
         tr_loss, tr_acc, _, _           = run_epoch(model, train_loader, criterion, optimizer, device, True,  True)
         vl_loss, vl_acc, vl_p, vl_l    = run_epoch(model, val_loader,   criterion, None,      device, False, False)
         scheduler.step(ep)
@@ -326,7 +365,15 @@ def train_classifier(args):
         best_tag = ""
         if vl_acc > best_acc:
             best_acc = vl_acc
-            torch.save(model, str(tmp_best))
+            # Save checkpoint dictionary with metadata for clean resumption
+            checkpoint_bundle = {
+                "epoch": ep,
+                "model": model,
+                "best_acc": best_acc,
+                "optimizer_state": optimizer.state_dict(),
+                "scheduler_state": scheduler.state_dict()
+            }
+            torch.save(checkpoint_bundle, str(tmp_best))
             best_tag = "  BEST"
             final_preds, final_labels = vl_p, vl_l
         print(f"  Epoch [{ep:02d}/{fine_ep:02d}]  "
@@ -334,9 +381,11 @@ def train_classifier(args):
               f"Val {vl_loss:.4f}/{vl_acc:.2f}%  "
               f"lr={lr_now:.6f}{best_tag}")
 
-    # ── Save best checkpoint ─────────────────────────────────────────────────
+    # ── Save best checkpoint as clean model object for backend inference ──────
     if tmp_best.exists():
-        shutil.copy2(tmp_best, output_path)
+        loaded_final = torch.load(tmp_best, map_location="cpu", weights_only=False)
+        final_model = loaded_final["model"] if isinstance(loaded_final, dict) and "model" in loaded_final else loaded_final
+        torch.save(final_model, str(output_path))
         tmp_best.unlink()
     else:
         torch.save(model, str(output_path))
@@ -367,5 +416,7 @@ if __name__ == "__main__":
                         help="Device: auto | cpu | cuda (default: auto)")
     parser.add_argument("--output", default="backend/weights/v2.0/classifier_waste.pth",
                         help="Output path for saved model")
+    parser.add_argument("--resume", action="store_true", default=False,
+                        help="Resume fine-tuning from last saved checkpoint (.best_tmp.pth or output path)")
     args = parser.parse_args()
     train_classifier(args)

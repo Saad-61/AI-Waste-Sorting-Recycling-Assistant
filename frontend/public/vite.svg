@@ -1,12 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-  <rect width="24" height="24" rx="6" fill="#1F5A3B"/>
-  <g fill="none" stroke="#6EE7B7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="translate(3.5, 3.5) scale(0.7)">
-    <path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/>
-    <path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/>
-    <path d="m14 16-3 3 3 3"/>
-    <path d="M8.293 13.596 5.196 9.5 7.196 6H9"/>
-    <path d="m2 9 3-3-3-3"/>
-    <path d="M11.5 5.5 13 3h2.185a1.83 1.83 0 0 1 1.57.881 1.785 1.785 0 0 1 .004 1.784L14.5 10"/>
-    <path d="m19 6-3 3 3 3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" fill="none">
+  <!-- Base Dark Squircle Tile -->
+  <rect x="28" y="28" width="456" height="456" rx="112" fill="#14151A" stroke="#2D303A" stroke-width="4"/>
+
+  <!-- Scaled, Bold 3-Arrow Recycling Blades (Static Solid Colors) -->
+  <defs>
+    <path id="bold-arrow" d="
+      M 132.5 -76.5
+      L 182.0 -105.0
+      A 210 210 0 0 1 129.5 165.5
+      L 148.5 177.0
+      L 62.0 170.5
+      L 85.0 101.0
+      L 94.0 120.5
+      A 153 153 0 0 0 132.5 -76.5
+      Z
+    " />
+  </defs>
+
+  <g transform="translate(256, 256)">
+    <!-- 3 Large Bold Arrows -->
+    <use href="#bold-arrow" fill="#34D399" />
+    <use href="#bold-arrow" transform="rotate(120)" fill="#34D399" />
+    <use href="#bold-arrow" transform="rotate(240)" fill="#34D399" />
+
+    <!-- Enlarged Center Camera Lens & Diode -->
+    <circle cx="0" cy="0" r="90" fill="#14151A" stroke="#2D303A" stroke-width="8" />
+    <circle cx="0" cy="0" r="52" fill="#34D399" />
+    <circle cx="-14" cy="-14" r="16" fill="#FFFFFF" opacity="0.95" />
   </g>
 </svg>
