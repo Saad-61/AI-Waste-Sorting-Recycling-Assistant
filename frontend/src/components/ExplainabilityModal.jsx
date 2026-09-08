@@ -22,7 +22,7 @@ import {
   AttachmentDescription,
   AttachmentActions,
   AttachmentAction,
-} from './ui/attachment';
+} from './ui/Attachment';
 import { formatImageSrc } from '../utils/imageUtils';
 
 /* ─── helpers ─────────────────────────────────────────────────────────────── */

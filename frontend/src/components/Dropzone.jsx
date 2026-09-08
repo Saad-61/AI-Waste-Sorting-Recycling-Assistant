@@ -9,7 +9,7 @@ import {
   AttachmentDescription,
   AttachmentMedia,
   AttachmentTitle,
-} from './ui/attachment';
+} from './ui/Attachment';
 
 export const Dropzone = ({ onFileSelect, isAnalyzing }) => {
   const [isDragOver, setIsDragOver] = useState(false);

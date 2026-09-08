@@ -104,5 +104,5 @@ backend/app_data.db
 *.swo
 .DS_Store
 
-# Temporary scratch evaluations
-scratch/*.json
+# Temporary scratch evaluations, benchmark & test scripts
+scratch/

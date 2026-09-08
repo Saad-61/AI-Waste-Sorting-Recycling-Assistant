@@ -8,7 +8,8 @@ export const AnnotatedViewer = ({
   originalImage,
   items = [],
   onSelectObject,
-  onOpenFullscreen
+  onOpenFullscreen,
+  modelBadge = 'YOLOv8m + EfficientNet-B2'
 }) => {
   const [viewMode, setViewMode] = useState('annotated'); // 'annotated' | 'original'
   const [isHovered, setIsHovered] = useState(false);
@@ -98,10 +99,10 @@ export const AnnotatedViewer = ({
           </div>
         </div>
 
-        {/* Discrete bottom timestamp info */}
+        {/* Discrete bottom model badge info */}
         <div className="absolute bottom-3 right-3 pointer-events-none">
           <span className="px-2 py-1 bg-[#14151A]/85 text-[#F4F5F7] text-[10px] font-mono rounded border border-[#282B37] backdrop-blur-sm">
-            {viewMode === 'annotated' ? 'YOLOv8 + EfficientNet' : 'Raw Capture'}
+            {viewMode === 'annotated' ? modelBadge : 'Raw Capture'}
           </span>
         </div>
       </div>

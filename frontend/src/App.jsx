@@ -12,7 +12,8 @@ import {
   Cpu,
   Package,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  SplitSquareVertical
 } from 'lucide-react';
 import Dropzone from './components/Dropzone';
 import WebcamCapture from './components/WebcamCapture';
@@ -20,6 +21,7 @@ import ObjectCard from './components/ObjectCard';
 import ExplainabilityModal from './components/ExplainabilityModal';
 import FullscreenLightbox from './components/FullscreenLightbox';
 import HistoryDrawer from './components/HistoryDrawer';
+import ComparisonView from './components/ComparisonView';
 import BrandHeader from './components/BrandHeader';
 import Card from './components/ui/Card';
 import Badge from './components/ui/Badge';
@@ -149,6 +151,18 @@ export function App() {
               </button>
 
               <button
+                onClick={() => setActiveTab('compare')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition ${
+                  activeTab === 'compare'
+                    ? 'bg-[#2D3140] text-[#F4F5F7] shadow-sm font-semibold'
+                    : 'text-[#9CA3AF] hover:text-[#F4F5F7]'
+                }`}
+              >
+                <SplitSquareVertical className="w-3.5 h-3.5 text-[#34D399]" />
+                Compare Models
+              </button>
+
+              <button
                 onClick={() => setActiveTab('history')}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition ${
                   activeTab === 'history'
@@ -168,6 +182,8 @@ export function App() {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full relative z-10">
         {activeTab === 'history' ? (
           <HistoryDrawer />
+        ) : activeTab === 'compare' ? (
+          <ComparisonView />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Column: Viewport / Capture Interface (7 cols) */}
@@ -252,7 +268,7 @@ export function App() {
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-1.5 cursor-help">
                             <Layers className="w-3.5 h-3.5 text-[#6B7280]" />
-                            <span>Pipeline: <strong className="text-[#34D399]">YOLOv8 + EfficientNet</strong></span>
+                            <span>Pipeline: <strong className="text-[#34D399]">YOLOv8m + EfficientNet-B2</strong></span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent>

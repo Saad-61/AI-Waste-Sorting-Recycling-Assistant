@@ -29,6 +29,21 @@ export const analyzeBase64 = async (imageBase64, filename = 'webcam_capture.jpg'
   return response.data;
 };
 
+export const compareModels = async (file, imageBase64 = null) => {
+  const formData = new FormData();
+  if (file) {
+    formData.append('file', file);
+  } else if (imageBase64) {
+    formData.append('image_base64', imageBase64);
+  }
+  const response = await apiClient.post('/analyze/compare', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
 export const getScanHistory = async (limit = 20, offset = 0, binFilter = null) => {
   const params = { limit, offset };
   if (binFilter) params.bin_filter = binFilter;

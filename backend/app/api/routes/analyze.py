@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.services.pipeline import InferencePipeline
+from app.services.pipeline import InferencePipeline, get_v1_pipeline, get_v2_pipeline
 from app.utils.image_processing import bytes_to_cv2, base64_to_cv2
 from app.models.db_models import ScanRecord, DetectedItem
 
@@ -129,3 +129,68 @@ async def analyze_base64(
     result["created_at"] = scan_entry.created_at.isoformat()
 
     return result
+
+
+@router.post("/compare")
+async def compare_models(
+    file: Optional[UploadFile] = File(None),
+    image_base64: Optional[str] = Form(None),
+):
+    """
+    Dual-model comparison endpoint:
+    Accepts a single image upload and executes both:
+      - Pipeline v1.0: YOLOv8n + MobileNetV3 (Edge Speed)
+      - Pipeline v2.0: YOLOv8m + EfficientNet-B2 (Deep Precision)
+    Calculates speedup metrics, latency delta, object count delta, and primary stream agreement.
+    Returns unified comparison payload without persisting unnecessary duplicates in db.
+    """
+    cv2_image = None
+    filename = "compare_benchmark.jpg"
+
+    if file is not None:
+        contents = await file.read()
+        cv2_image = bytes_to_cv2(contents)
+        filename = file.filename or filename
+    elif image_base64 is not None:
+        cv2_image = base64_to_cv2(image_base64)
+        filename = "compare_capture.jpg"
+    else:
+        raise HTTPException(status_code=400, detail="No image file or base64 data provided.")
+
+    if cv2_image is None or cv2_image.size == 0:
+        raise HTTPException(status_code=400, detail="Failed to decode image.")
+
+    pipe_v1 = get_v1_pipeline()
+    pipe_v2 = get_v2_pipeline()
+
+    # Run both pipelines independently
+    res_v1 = pipe_v1.process_image(cv2_image.copy(), filename=filename)
+    res_v2 = pipe_v2.process_image(cv2_image.copy(), filename=filename)
+
+    lat_v1 = res_v1.get("processing_time_ms", 1.0)
+    lat_v2 = res_v2.get("processing_time_ms", 1.0)
+
+    speedup = round(lat_v2 / max(lat_v1, 0.1), 1) if lat_v1 > 0 else 1.0
+    latency_diff_ms = round(abs(lat_v2 - lat_v1), 1)
+
+    bin_v1 = res_v1.get("primary_bin", "Unknown")
+    bin_v2 = res_v2.get("primary_bin", "Unknown")
+    agreement = (bin_v1.strip().lower() == bin_v2.strip().lower())
+
+    summary = {
+        "v1_latency_ms": lat_v1,
+        "v2_latency_ms": lat_v2,
+        "speedup_factor": f"{speedup}x",
+        "faster_model": "v1.0" if lat_v1 <= lat_v2 else "v2.0",
+        "latency_diff_ms": latency_diff_ms,
+        "total_objects_v1": res_v1.get("total_objects", 0),
+        "total_objects_v2": res_v2.get("total_objects", 0),
+        "primary_bin_agreement": agreement,
+        "image_resolution": f"{cv2_image.shape[1]}x{cv2_image.shape[0]}",
+    }
+
+    return {
+        "v1": res_v1,
+        "v2": res_v2,
+        "summary": summary
+    }

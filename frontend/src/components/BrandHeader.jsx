@@ -44,7 +44,7 @@ export default function BrandHeader({
         </svg>
       </div>
 
-      {/* Title, Badge & Subtitle */}
+      {/* Title & Subtitle */}
       <div className="flex flex-col">
         <div className="flex items-center gap-2">
           <span className="text-[17px] font-bold tracking-tight">
@@ -52,9 +52,6 @@ export default function BrandHeader({
               Recycle
             </ShinyText>
             <span className="text-[#34D399]">Lens</span>
-          </span>
-          <span className="rounded-full border border-[#10B981]/30 bg-[#10B981]/10 px-2 py-[1px] font-mono text-[10.5px] font-medium text-[#34D399]">
-            {version}
           </span>
         </div>
         <span className="text-[11.5px] font-medium tracking-wide text-[#9CA3AF]">
