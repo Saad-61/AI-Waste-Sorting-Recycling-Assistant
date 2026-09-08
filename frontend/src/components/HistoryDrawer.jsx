@@ -311,18 +311,6 @@ export const HistoryDrawer = () => {
                       <span>{new Date(selectedRecord.created_at).toLocaleDateString()}</span>
                     </AttachmentDescription>
                   </AttachmentContent>
-                  <AttachmentActions>
-                    <a
-                      href={formatImageSrc(selectedRecord.image_base64)}
-                      download={selectedRecord.filename || `scan_${selectedRecord.id}.jpg`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <AttachmentAction aria-label="Download original capture image">
-                        <Download className="w-4 h-4 text-[#9CA3AF] hover:text-[#34D399] transition-colors" />
-                      </AttachmentAction>
-                    </a>
-                  </AttachmentActions>
                 </div>
               </Attachment>
             )}

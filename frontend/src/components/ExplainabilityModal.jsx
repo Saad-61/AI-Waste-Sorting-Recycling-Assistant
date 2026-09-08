@@ -30,7 +30,7 @@ import { formatImageSrc } from '../utils/imageUtils';
 const ConfidenceBar = ({ value, label }) => {
   const pct = Math.round((value || 0) * 100);
   const color =
-    pct >= 75 ? '#34D399' : pct >= 50 ? '#FBBF24' : '#F87171';
+    pct >= 70 ? '#34D399' : pct >= 50 ? '#38BDF8' : '#FBBF24';
   return (
     <div>
       <div className="flex justify-between text-[11px] mb-1.5 text-[#9CA3AF] font-medium">
@@ -100,7 +100,7 @@ export const ExplainabilityModal = ({ isOpen, onClose, item }) => {
   const detectorPct = Math.round((item.confidence || 0) * 100);
   const classifierPct = Math.round((item.classifier_confidence || item.confidence || 0) * 100);
 
-  const isHighConf = detectorPct >= 75 && classifierPct >= 65;
+  const isHighConf = detectorPct >= 70 && classifierPct >= 65;
   const isMedConf = !isHighConf && (detectorPct >= 50 || classifierPct >= 50);
 
   const verdictText = isHighConf
@@ -109,7 +109,11 @@ export const ExplainabilityModal = ({ isOpen, onClose, item }) => {
     ? 'Moderate certainty — the result is likely correct but worth a quick visual check.'
     : 'Low certainty — please inspect this item manually before disposal.';
 
-  const verdictColor = isHighConf ? '#34D399' : isMedConf ? '#FBBF24' : '#F87171';
+  const verdictBadge = isHighConf
+    ? { border: 'border-[#1B523B]', bg: 'bg-[#0E261D]', text: 'text-[#34D399]', icon: CheckCircle2 }
+    : isMedConf
+    ? { border: 'border-[#1B3B52]', bg: 'bg-[#0E1E2B]', text: 'text-[#38BDF8]', icon: CheckCircle2 }
+    : { border: 'border-[#5C4916]', bg: 'bg-[#29210C]', text: 'text-[#FBBF24]', icon: AlertTriangle };
 
   return (
     <Modal
@@ -147,15 +151,6 @@ export const ExplainabilityModal = ({ isOpen, onClose, item }) => {
                   <span>Target Cutout</span>
                 </AttachmentDescription>
               </AttachmentContent>
-              {cropSrc && (
-                <AttachmentActions>
-                  <a href={cropSrc} download={`${item.label}_crop.jpg`} target="_blank" rel="noreferrer">
-                    <AttachmentAction aria-label="Download detected crop">
-                      <Download className="w-3.5 h-3.5 text-[#9CA3AF] hover:text-[#34D399] transition-colors" />
-                    </AttachmentAction>
-                  </a>
-                </AttachmentActions>
-              )}
             </div>
           </Attachment>
 
@@ -184,15 +179,6 @@ export const ExplainabilityModal = ({ isOpen, onClose, item }) => {
                   <span>Feature focus</span>
                 </AttachmentDescription>
               </AttachmentContent>
-              {heatmapSrc && (
-                <AttachmentActions>
-                  <a href={heatmapSrc} download={`${item.label}_gradcam.jpg`} target="_blank" rel="noreferrer">
-                    <AttachmentAction aria-label="Download attention map">
-                      <Download className="w-3.5 h-3.5 text-[#9CA3AF] hover:text-[#34D399] transition-colors" />
-                    </AttachmentAction>
-                  </a>
-                </AttachmentActions>
-              )}
             </div>
           </Attachment>
         </div>
@@ -237,17 +223,10 @@ export const ExplainabilityModal = ({ isOpen, onClose, item }) => {
         </div>
 
         {/* ── Verdict banner ──────────────────────────────────────────────── */}
-        <div
-          className="p-3.5 rounded-xl border flex items-start gap-3"
-          style={{ borderColor: `${verdictColor}33`, backgroundColor: `${verdictColor}0D` }}
-        >
-          {isHighConf ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" style={{ color: verdictColor }} />
-          ) : (
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: verdictColor }} />
-          )}
-          <p className="text-xs leading-relaxed" style={{ color: verdictColor }}>
-            <strong>Verdict: </strong>{verdictText}
+        <div className={`p-3.5 rounded-xl border ${verdictBadge.border} ${verdictBadge.bg} flex items-start gap-3`}>
+          <verdictBadge.icon className={`w-4 h-4 shrink-0 mt-0.5 ${verdictBadge.text}`} />
+          <p className={`text-xs leading-relaxed ${verdictBadge.text}`}>
+            <strong className="font-semibold text-[#F4F5F7]">Verdict: </strong>{verdictText}
           </p>
         </div>
 

@@ -58,7 +58,7 @@ export const ObjectCard = ({ item, isSelected, onClick, onExplain }) => {
   const avgPct = Math.round((detectorPct + classifierPct) / 2);
 
   const barColor =
-    avgPct >= 75 ? '#34D399' : avgPct >= 50 ? '#FBBF24' : '#F87171';
+    avgPct >= 70 ? '#34D399' : avgPct >= 50 ? '#38BDF8' : '#FBBF24';
 
   return (
     <SpotlightCard
@@ -74,8 +74,8 @@ export const ObjectCard = ({ item, isSelected, onClick, onExplain }) => {
       {/* Top Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#222530] border border-[#282B37] flex items-center justify-center text-[#34D399] shrink-0 shadow-sm">
-            <Package className="w-4 h-4" />
+          <div className="transition-transform duration-200 transform hover:scale-115 cursor-pointer text-[#34D399] shrink-0">
+            <Package className="w-5 h-5 text-[#34D399]" />
           </div>
           <div>
             <h4 className="font-display font-bold text-[#F4F5F7] text-sm capitalize">

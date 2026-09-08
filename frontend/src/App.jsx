@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import Dropzone from './components/Dropzone';
 import WebcamCapture from './components/WebcamCapture';
-import AnnotatedViewer from './components/AnnotatedViewer';
 import ObjectCard from './components/ObjectCard';
 import ExplainabilityModal from './components/ExplainabilityModal';
 import FullscreenLightbox from './components/FullscreenLightbox';
@@ -25,15 +24,6 @@ import BrandHeader from './components/BrandHeader';
 import Card from './components/ui/Card';
 import Badge from './components/ui/Badge';
 import Button from './components/ui/Button';
-import {
-  Attachment,
-  AttachmentAction,
-  AttachmentActions,
-  AttachmentContent,
-  AttachmentDescription,
-  AttachmentMedia,
-  AttachmentTitle,
-} from './components/ui/attachment';
 import {
   Empty,
   EmptyHeader,
@@ -94,6 +84,13 @@ export function App() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleResetScene = () => {
+    setAnalysisResult(null);
+    setOriginalImagePreview(null);
+    setSelectedItem(null);
+    setExplainItem(null);
   };
 
   // Helper for primary stream styling
@@ -175,92 +172,112 @@ export function App() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Column: Viewport / Capture Interface (7 cols) */}
             <div className="lg:col-span-7 flex flex-col gap-6">
-              {/* Capture Box */}
-              {activeTab === 'upload' ? (
-                <Dropzone onFileSelect={handleFileUpload} isAnalyzing={isAnalyzing} />
-              ) : (
-                <WebcamCapture onCapture={handleWebcamCapture} isAnalyzing={isAnalyzing} />
-              )}
+              {analysisResult ? (
+                <div className="flex flex-col gap-4">
+                  {/* Top Bar with View in Fullscreen and Change Scene */}
+                  <div className="flex items-center justify-between bg-[#1B1D24] border border-[#282B37] px-4 py-3 rounded-2xl shadow-warm-sm">
+                    <div className="flex items-center gap-2.5">
+                      <div className="transition-transform hover:scale-110">
+                        <Package className="w-5 h-5 text-[#34D399]" />
+                      </div>
+                      <div>
+                        <h3 className="font-display font-bold text-sm text-[#F4F5F7]">
+                          Annotated Detection Scene
+                        </h3>
+                        <p className="text-[11px] font-mono text-[#9CA3AF]">
+                          {analysisResult.items?.length || 0} discrete {analysisResult.items?.length === 1 ? 'target' : 'targets'} isolated
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Active Optical Capture Attachment */}
-              {analysisResult && (
-                <Attachment variant="default" size="sm" className="bg-[#1B1D24] border-[#282B37]">
-                  <AttachmentMedia variant="image" src={originalImagePreview} className="w-10 h-10 rounded-lg">
-                    <Package className="w-4 h-4 text-[#34D399]" />
-                  </AttachmentMedia>
-                  <AttachmentContent>
-                    <AttachmentTitle className="text-xs">
-                      Session #{analysisResult.scan_id || '1'} Source Scene
-                    </AttachmentTitle>
-                    <AttachmentDescription>
-                      <span>{analysisResult.items?.length || 0} discrete targets isolated</span>
-                      <span>·</span>
-                      <span>{analysisResult.processing_time_ms} ms</span>
-                    </AttachmentDescription>
-                  </AttachmentContent>
-                  <AttachmentActions>
-                    <AttachmentAction
-                      onClick={() => setIsFullscreenOpen(true)}
-                      aria-label="View Fullscreen Capture"
-                    >
-                      <Maximize2 className="w-3.5 h-3.5 text-[#9CA3AF] hover:text-[#34D399] transition-colors" />
-                    </AttachmentAction>
-                  </AttachmentActions>
-                </Attachment>
-              )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsFullscreenOpen(true)}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#34D399]/15 hover:bg-[#34D399]/25 text-[#34D399] border border-[#34D399]/40 text-xs font-semibold transition-all shadow-sm"
+                        id="view-fullscreen-btn"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5 text-[#34D399]" />
+                        View in Fullscreen
+                      </button>
 
-              {/* Inspection Viewport */}
-              {analysisResult && (
-                <AnnotatedViewer
-                  annotatedImage={formatImageSrc(analysisResult.annotated_image)}
-                  originalImage={originalImagePreview}
-                  items={analysisResult.items}
-                  onSelectObject={setSelectedItem}
-                  onOpenFullscreen={() => setIsFullscreenOpen(true)}
-                />
-              )}
-
-              {/* Telemetry Strip */}
-              {analysisResult && (
-                <TooltipProvider>
-                  <div className="p-4 rounded-2xl bg-[#1B1D24]/95 backdrop-blur-sm border border-[#282B37] shadow-warm-sm flex items-center justify-between text-xs font-mono text-[#9CA3AF] flex-wrap gap-3">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1.5 cursor-help">
-                          <Clock className="w-3.5 h-3.5 text-[#6B7280]" />
-                          <span>Inference: <strong className="text-[#F4F5F7]"><CountUp to={analysisResult.processing_time_ms} suffix=" ms" duration={0.5} /></strong></span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        End-to-end multi-stage pipeline inference latency
-                      </TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1.5 cursor-help">
-                          <Package className="w-3.5 h-3.5 text-[#6B7280]" />
-                          <span>Targets: <strong className="text-[#F4F5F7]"><CountUp to={analysisResult.total_objects} duration={0.4} /></strong></span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Discrete waste targets isolated in scene
-                      </TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1.5 cursor-help">
-                          <Layers className="w-3.5 h-3.5 text-[#6B7280]" />
-                          <span>Pipeline: <strong className="text-[#34D399]">YOLOv8 + EfficientNet</strong></span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Multi-stage architecture: YOLOv8m detection + 11-class EfficientNet-B2 classification + Grad-CAM saliency
-                      </TooltipContent>
-                    </Tooltip>
+                      <button
+                        onClick={handleResetScene}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#222530] hover:bg-[#282B37] text-[#9CA3AF] hover:text-[#F4F5F7] border border-[#282B37] text-xs font-medium transition-all"
+                        title="Upload a new scene image"
+                      >
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        Change Scene
+                      </button>
+                    </div>
                   </div>
-                </TooltipProvider>
+
+                  {/* Annotated Bounding Box Image Frame */}
+                  <div
+                    className="group relative rounded-2xl overflow-hidden border border-[#282B37] bg-[#14151A] flex items-center justify-center min-h-[380px] max-h-[580px] shadow-warm-sm cursor-pointer"
+                    onClick={() => setIsFullscreenOpen(true)}
+                    title="Click to open Fullscreen Inspector"
+                  >
+                    <img
+                      src={formatImageSrc(analysisResult.annotated_image)}
+                      alt="Annotated waste detection view"
+                      className="w-full h-full object-contain max-h-[560px] rounded-xl"
+                    />
+
+                    {/* Subtle bottom hover hint */}
+                    <div className="absolute bottom-3 right-3 bg-[#1B1D24]/90 backdrop-blur-sm border border-[#282B37] text-[#9CA3AF] group-hover:text-[#F4F5F7] text-[11px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg transition-colors">
+                      <Maximize2 className="w-3 h-3 text-[#34D399]" />
+                      Click image or button above for Fullscreen
+                    </div>
+                  </div>
+
+                  {/* Telemetry Strip */}
+                  <TooltipProvider>
+                    <div className="p-4 rounded-2xl bg-[#1B1D24]/95 backdrop-blur-sm border border-[#282B37] shadow-warm-sm flex items-center justify-between text-xs font-mono text-[#9CA3AF] flex-wrap gap-3">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 cursor-help">
+                            <Clock className="w-3.5 h-3.5 text-[#6B7280]" />
+                            <span>Inference: <strong className="text-[#F4F5F7]"><CountUp to={analysisResult.processing_time_ms} suffix=" ms" duration={0.5} /></strong></span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          End-to-end multi-stage pipeline inference latency
+                        </TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 cursor-help">
+                            <Package className="w-3.5 h-3.5 text-[#6B7280]" />
+                            <span>Targets: <strong className="text-[#F4F5F7]"><CountUp to={analysisResult.total_objects} duration={0.4} /></strong></span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Discrete waste targets isolated in scene
+                        </TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 cursor-help">
+                            <Layers className="w-3.5 h-3.5 text-[#6B7280]" />
+                            <span>Pipeline: <strong className="text-[#34D399]">YOLOv8 + EfficientNet</strong></span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Multi-stage architecture: YOLOv8m detection + 11-class EfficientNet-B2 classification + Grad-CAM saliency
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
+                </div>
+              ) : (
+                /* Capture Box when no result */
+                activeTab === 'upload' ? (
+                  <Dropzone onFileSelect={handleFileUpload} isAnalyzing={isAnalyzing} />
+                ) : (
+                  <WebcamCapture onCapture={handleWebcamCapture} isAnalyzing={isAnalyzing} />
+                )
               )}
             </div>
 

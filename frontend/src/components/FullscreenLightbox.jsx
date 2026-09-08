@@ -45,9 +45,6 @@ export const FullscreenLightbox = ({
       if (e.key === '+' || e.key === '=') handleZoomIn();
       if (e.key === '-' || e.key === '_') handleZoomOut();
       if (e.key === '0') handleReset();
-      if (e.key === '1') setActiveLayer('annotated');
-      if (e.key === '2') setActiveLayer('original');
-      if (e.key === '3' && heatmapImage) setActiveLayer('heatmap');
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -108,45 +105,10 @@ export const FullscreenLightbox = ({
           </span>
         </div>
 
-        {/* Center Layer Switcher */}
-        <div className="flex items-center bg-[#0E0F12] p-1 rounded-lg border border-[#282B37] text-xs">
-          <button
-            onClick={() => setActiveLayer('annotated')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition ${
-              activeLayer === 'annotated'
-                ? 'bg-[#222530] text-[#F4F5F7] shadow-sm'
-                : 'text-[#9CA3AF] hover:text-[#F4F5F7]'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            Detection View (1)
-          </button>
-
-          <button
-            onClick={() => setActiveLayer('original')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition ${
-              activeLayer === 'original'
-                ? 'bg-[#222530] text-[#F4F5F7] shadow-sm'
-                : 'text-[#9CA3AF] hover:text-[#F4F5F7]'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            Original Capture (2)
-          </button>
-
-          {heatmapImage && (
-            <button
-              onClick={() => setActiveLayer('heatmap')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition ${
-                activeLayer === 'heatmap'
-                  ? 'bg-[#0E261D] text-[#34D399] border border-[#1B523B]'
-                  : 'text-[#9CA3AF] hover:text-[#F4F5F7]'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5 text-[#34D399]" />
-              Neural Saliency Map (3)
-            </button>
-          )}
+        {/* Center Title Badge */}
+        <div className="flex items-center gap-2 px-3 py-1 bg-[#0E0F12] rounded-lg border border-[#282B37] text-xs font-mono text-[#34D399]">
+          <Layers className="w-3.5 h-3.5" />
+          <span>Annotated Bounding Box Inspection</span>
         </div>
 
         {/* Right Close & Zoom stats */}
@@ -226,9 +188,9 @@ export const FullscreenLightbox = ({
       {/* Footer Info Bar */}
       <footer className="h-10 px-6 border-t border-[#282B37] bg-[#14151A]/80 flex items-center justify-between text-[11px] font-mono text-[#6B7280]">
         <div>
-          Keys: <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">1</kbd> Detection View ·{' '}
-          <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">2</kbd> Original ·{' '}
-          <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">3</kbd> Saliency ·{' '}
+          Keys: <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">+</kbd> Zoom In ·{' '}
+          <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">-</kbd> Zoom Out ·{' '}
+          <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">0</kbd> Reset ·{' '}
           <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">ESC</kbd> Exit
         </div>
         <div>Drag to Pan when zoomed · Scroll wheel to inspect details</div>
