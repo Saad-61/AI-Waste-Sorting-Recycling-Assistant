@@ -101,6 +101,28 @@ class WasteClassifier:
         except Exception:
             return False
 
+    def _is_human_skin(self, crop: np.ndarray) -> bool:
+        """Biometric skin detection to prevent human hands/fingers from being classified as plastic"""
+        if crop is None or crop.size < 300:
+            return False
+        try:
+            import cv2
+            hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+            ycrcb = cv2.cvtColor(crop, cv2.COLOR_BGR2YCrCb)
+
+            h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+            hsv_mask = ((h <= 25) | (h >= 170)) & (s >= 30) & (s <= 210) & (v >= 60)
+
+            cr = ycrcb[:, :, 1]
+            cb = ycrcb[:, :, 2]
+            ycrcb_mask = (cr >= 135) & (cr <= 175) & (cb >= 85) & (cb <= 125)
+
+            skin_mask = hsv_mask & ycrcb_mask
+            skin_ratio = np.count_nonzero(skin_mask) / float(crop.shape[0] * crop.shape[1])
+            return skin_ratio > 0.55
+        except Exception:
+            return False
+
     def _run_model_inference(self, crop: np.ndarray):
         """
         Runs forward pass and returns (pred_idx, pred_conf, probs_np).
@@ -139,19 +161,7 @@ class WasteClassifier:
 
     def classify_crop(self, crop: np.ndarray, detected_label: Optional[str] = None, detector_confidence: float = 1.0) -> Dict[str, Any]:
         """
-        Classifies a cropped image region with three-stage open-set protection:
-
-        Stage 1 – Foliage heuristic: colour-based HSV check rejects natural
-                  vegetation before touching the neural network.
-
-        Stage 2 – Shannon entropy gate: if the softmax distribution is nearly
-                  uniform (high entropy), the model is confused and the item
-                  is returned as 'Uncertain / Other' rather than being force-
-                  assigned to the most-common class (Plastic Bottle).
-
-        Stage 3 – Detector-label fusion: YOLO category overrides the CNN for
-                  high-confidence YOLO hits (glass, metal, cardboard, etc.)
-                  which typically have strong detector evidence.
+        Classifies a cropped image region with open-set protection, skin detection, and Bayesian fusion.
         """
         # ── Guard: empty crop ─────────────────────────────────────────────────
         if crop is None or crop.size == 0:
@@ -162,13 +172,22 @@ class WasteClassifier:
                 "is_uncertain": True
             }
 
-        # ── Stage 1: Foliage / ground heuristic ──────────────────────────────
         label_lower = (detected_label or "").lower()
-        # Only trust very confident detector hits (>= 0.70) to override foliage heuristic
-        is_definite_waste = detector_confidence >= 0.70 and any(
-            kw in label_lower for kw in ["glass", "metal", "cardboard", "paper", "can", "bottle"]
+        is_definite_waste = detector_confidence >= 0.48 and any(
+            kw in label_lower for kw in ["glass", "metal", "cardboard", "paper", "can", "bottle", "plastic"]
         )
 
+        # ── Stage 0: Human Hand / Finger Occlusion Guard ──────────────────────
+        # Only classify as human hand if it is an isolated hand/finger without a strong waste detection
+        if self._is_human_skin(crop) and not is_definite_waste:
+            return {
+                "material": "Human Hand / Skin Occlusion",
+                "confidence": 0.88,
+                "is_clean": False,
+                "is_uncertain": True
+            }
+
+        # ── Stage 1: Foliage / ground heuristic ──────────────────────────────
         if self._is_foliage_or_ground(crop) and not is_definite_waste:
             return {
                 "material": "Organic Foliage / Plant Matter",
@@ -186,8 +205,8 @@ class WasteClassifier:
             entropy       = _shannon_entropy(probs_np)
             entropy_ratio = entropy / self._MAX_ENTROPY
 
-            # Flat / confused softmax → uncertain
-            if entropy_ratio > _ENTROPY_REJECT_RATIO:
+            # Flat / confused softmax → uncertain (unless detector has strong evidence)
+            if entropy_ratio > _ENTROPY_REJECT_RATIO and not is_definite_waste:
                 return {
                     "material": "Uncertain / Other",
                     "confidence": round(pred_conf, 3),
@@ -195,7 +214,7 @@ class WasteClassifier:
                     "is_uncertain": True
                 }
 
-        # Hard confidence floor (catches very-low-entropy but still weak predictions)
+        # Hard confidence floor
         if pred_conf < _MIN_TOP1_CONFIDENCE and not is_definite_waste:
             return {
                 "material": "Uncertain / Other",
@@ -204,49 +223,102 @@ class WasteClassifier:
                 "is_uncertain": True
             }
 
-        # ── Stage 3: Detector-label fusion ────────────────────────────────────
-        if "glass" in label_lower:
-            material   = "Glass Bottle / Container"
-            confidence = max(pred_conf, 0.91)
-        elif "cardboard" in label_lower or "box" in label_lower:
-            material   = "Corrugated Cardboard"
-            confidence = max(pred_conf, 0.94)
-        elif "paper" in label_lower:
-            material   = "Recyclable Paper"
-            confidence = max(pred_conf, 0.90)
-        elif "metal" in label_lower or "can" in label_lower:
-            material   = "Aluminum / Tin Can"
-            confidence = max(pred_conf, 0.95)
-        elif "soft plastic" in label_lower or "bag" in label_lower:
-            material   = "Soft Plastic / Bag"
-            confidence = max(pred_conf, 0.90)
-        elif "plastic" in label_lower:
-            # For plastic sub-types require a higher CNN confidence bar to prevent
-            # everything defaulting to PET (most common training class)
-            if predicted_material and "soft plastic" in predicted_material.lower() and pred_conf >= 0.45:
+        # ── Stage 3: Intelligent Confidence-Weighted Bayesian Fusion ──────────
+        # Material mapping helpers
+        clf_name = (predicted_material or "").lower()
+
+        # CASE 1: Strong Classifier Recognition (EfficientNet >= 0.60)
+        # EfficientNet has seen full-color 224x224 crop details. If confident, it can overturn YOLO!
+        if pred_conf >= 0.60 and predicted_material and predicted_material != "Uncertain / Other":
+            if "glass" in clf_name:
+                material = "Glass Bottle / Container"
+                confidence = max(pred_conf, 0.88)
+            elif "metal" in clf_name or "can" in clf_name:
+                material = "Aluminum / Tin Can"
+                confidence = max(pred_conf, 0.90)
+            elif "cardboard" in clf_name:
+                material = "Corrugated Cardboard"
+                confidence = max(pred_conf, 0.92)
+            elif "paper" in clf_name:
+                material = "Recyclable Paper"
+                confidence = max(pred_conf, 0.88)
+            elif "soft plastic" in clf_name or "bag" in clf_name:
                 material = "Soft Plastic / Bag"
                 confidence = max(pred_conf, 0.85)
-            elif predicted_material and "plastic" in predicted_material.lower() and pred_conf >= _PLASTIC_MIN_CONF:
+            elif "hdpe" in clf_name or "container" in clf_name:
+                material = "Plastic Container (HDPE)"
+                confidence = max(pred_conf, 0.84)
+            elif "plastic" in clf_name or "pet" in clf_name:
+                material = "Plastic Bottle (PET)"
+                confidence = max(pred_conf, 0.85)
+            elif "organic" in clf_name:
+                material = "Organic Compostable"
+                confidence = max(pred_conf, 0.88)
+            elif "electronic" in clf_name or "e_waste" in clf_name:
+                material = "Electronic Waste"
+                confidence = max(pred_conf, 0.90)
+            else:
                 material = predicted_material
-                confidence = max(pred_conf, 0.75)
+                confidence = pred_conf
+
+        # CASE 2: Both Agree in Domain (Synergistic Boost)
+        elif "glass" in label_lower and "glass" in clf_name:
+            material = "Glass Bottle / Container"
+            confidence = round(min(0.98, max(detector_confidence, pred_conf) + 0.10), 2)
+        elif ("metal" in label_lower or "can" in label_lower) and ("metal" in clf_name or "can" in clf_name):
+            material = "Aluminum / Tin Can"
+            confidence = round(min(0.98, max(detector_confidence, pred_conf) + 0.10), 2)
+        elif "plastic" in label_lower and ("plastic" in clf_name or "bag" in clf_name):
+            if "soft plastic" in clf_name or "bag" in clf_name:
+                material = "Soft Plastic / Bag"
+            elif "hdpe" in clf_name:
+                material = "Plastic Container (HDPE)"
             else:
                 material = "Plastic Bottle (PET)"
-                confidence = max(pred_conf, 0.75)   # lower floor vs before (was 0.88)
-        elif "organic" in label_lower or "food" in label_lower:
-            material   = "Organic Compostable"
-            confidence = max(pred_conf, 0.96)
-        elif "e_waste" in label_lower or "electronic" in label_lower or "battery" in label_lower:
-            material   = "Electronic Waste"
-            confidence = max(pred_conf, 0.95)
-        elif predicted_material and pred_conf >= _MIN_TOP1_CONFIDENCE:
-            material   = predicted_material
-            confidence = pred_conf
-        else:
-            # Final fallback
-            material   = "Uncertain / Other"
+            confidence = round(min(0.95, max(detector_confidence, pred_conf) + 0.08), 2)
+
+        # CASE 3: Strong YOLO Prior (Detector >= 0.55 when Classifier is Ambiguous)
+        elif detector_confidence >= 0.55:
+            if "glass" in label_lower:
+                material = "Glass Bottle / Container"
+                confidence = max(detector_confidence, 0.85)
+            elif "metal" in label_lower or "can" in label_lower:
+                material = "Aluminum / Tin Can"
+                confidence = max(detector_confidence, 0.85)
+            elif "cardboard" in label_lower or "box" in label_lower:
+                material = "Corrugated Cardboard"
+                confidence = max(detector_confidence, 0.88)
+            elif "paper" in label_lower:
+                material = "Recyclable Paper"
+                confidence = max(detector_confidence, 0.85)
+            elif "plastic" in label_lower:
+                if "soft plastic" in clf_name or "bag" in clf_name:
+                    material = "Soft Plastic / Bag"
+                    confidence = 0.80
+                elif "hdpe" in clf_name:
+                    material = "Plastic Container (HDPE)"
+                    confidence = 0.80
+                else:
+                    material = "Plastic Bottle (PET)"
+                    confidence = max(detector_confidence, 0.78)
+            elif "organic" in label_lower:
+                material = "Organic Compostable"
+                confidence = max(detector_confidence, 0.85)
+            else:
+                material = predicted_material or "Uncertain / Other"
+                confidence = max(detector_confidence, pred_conf)
+
+        # CASE 4: Moderate Classifier Guidance
+        elif predicted_material and pred_conf >= _MIN_TOP1_CONFIDENCE and predicted_material != "Uncertain / Other":
+            material = predicted_material
             confidence = pred_conf
 
-        is_uncertain = (confidence < 0.50) or (material == "Uncertain / Other")
+        # CASE 5: Fallback
+        else:
+            material = "Uncertain / Other"
+            confidence = round(pred_conf, 3)
+
+        is_uncertain = (confidence < 0.45) or (material == "Uncertain / Other")
 
         return {
             "material": material,

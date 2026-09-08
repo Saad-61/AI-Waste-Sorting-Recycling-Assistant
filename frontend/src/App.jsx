@@ -192,17 +192,8 @@ export function App() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setIsFullscreenOpen(true)}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#34D399]/15 hover:bg-[#34D399]/25 text-[#34D399] border border-[#34D399]/40 text-xs font-semibold transition-all shadow-sm"
-                        id="view-fullscreen-btn"
-                      >
-                        <Maximize2 className="w-3.5 h-3.5 text-[#34D399]" />
-                        View in Fullscreen
-                      </button>
-
-                      <button
                         onClick={handleResetScene}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#222530] hover:bg-[#282B37] text-[#9CA3AF] hover:text-[#F4F5F7] border border-[#282B37] text-xs font-medium transition-all"
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#222530] hover:bg-[#282B37] text-[#9CA3AF] hover:text-[#F4F5F7] border border-[#282B37] text-xs font-medium transition-all"
                         title="Upload a new scene image"
                       >
                         <UploadCloud className="w-3.5 h-3.5" />
@@ -213,20 +204,20 @@ export function App() {
 
                   {/* Annotated Bounding Box Image Frame */}
                   <div
-                    className="group relative rounded-2xl overflow-hidden border border-[#282B37] bg-[#14151A] flex items-center justify-center min-h-[380px] max-h-[580px] shadow-warm-sm cursor-pointer"
+                    className="group relative rounded-2xl overflow-hidden border border-[#282B37] bg-[#14151A] flex items-center justify-center min-h-[380px] max-h-[640px] shadow-warm-sm cursor-pointer"
                     onClick={() => setIsFullscreenOpen(true)}
                     title="Click to open Fullscreen Inspector"
                   >
                     <img
                       src={formatImageSrc(analysisResult.annotated_image)}
                       alt="Annotated waste detection view"
-                      className="w-full h-full object-contain max-h-[560px] rounded-xl"
+                      className="w-full h-full object-contain max-h-[620px] rounded-xl"
                     />
 
                     {/* Subtle bottom hover hint */}
                     <div className="absolute bottom-3 right-3 bg-[#1B1D24]/90 backdrop-blur-sm border border-[#282B37] text-[#9CA3AF] group-hover:text-[#F4F5F7] text-[11px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg transition-colors">
                       <Maximize2 className="w-3 h-3 text-[#34D399]" />
-                      Click image or button above for Fullscreen
+                      Click image to View Fullscreen
                     </div>
                   </div>
 

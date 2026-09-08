@@ -6,6 +6,26 @@ class DecisionEngine:
 
     # Order matters — more specific keys first to win matching priority
     RULES = {
+        # ── Human Hand / Non-Waste Occlusion ──────────────────────────────────
+        "human hand": {
+            "bin": "Non-Waste (Human Hand Detected)",
+            "recyclable": "No",
+            "badge_variant": "secondary",
+            "instructions": (
+                "Human hand or finger detected in capture. "
+                "Ensure only waste items are placed in front of the camera for sorting."
+            ),
+        },
+        "skin occlusion": {
+            "bin": "Non-Waste (Human Hand Detected)",
+            "recyclable": "No",
+            "badge_variant": "secondary",
+            "instructions": (
+                "Human hand or finger detected in capture. "
+                "Ensure only waste items are placed in front of the camera for sorting."
+            ),
+        },
+
         # ── Foliage / organic backgrounds ─────────────────────────────────────
         "foliage": {
             "bin": "Organic / Yard Waste",

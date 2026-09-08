@@ -103,3 +103,6 @@ backend/app_data.db
 *.swp
 *.swo
 .DS_Store
+
+# Temporary scratch evaluations
+scratch/*.json
