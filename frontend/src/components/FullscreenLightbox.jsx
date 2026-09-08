@@ -89,33 +89,33 @@ export const FullscreenLightbox = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-[#0B0C10]/95 backdrop-blur-md flex flex-col select-none animate-in fade-in duration-200"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      {/* Top Studio Bar */}
-      <header className="h-16 px-6 border-b border-slate-800/80 bg-slate-900/80 flex items-center justify-between text-slate-200">
+      {/* Top Header Bar */}
+      <header className="h-16 px-6 border-b border-[#282B37] bg-[#14151A]/90 flex items-center justify-between text-[#F4F5F7]">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <h2 className="font-display font-semibold text-white text-sm tracking-wide uppercase">
-              Inspection Studio
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h2 className="font-display font-semibold text-[#F4F5F7] text-sm tracking-wide uppercase">
+              Optical Inspector
             </h2>
           </div>
-          <span className="text-slate-600">|</span>
-          <span className="text-xs font-mono text-slate-400">
+          <span className="text-[#282B37]">|</span>
+          <span className="text-xs font-mono text-[#9CA3AF]">
             {totalObjects} {totalObjects === 1 ? 'Object Detected' : 'Objects Detected'}
           </span>
         </div>
 
         {/* Center Layer Switcher */}
-        <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+        <div className="flex items-center bg-[#0E0F12] p-1 rounded-lg border border-[#282B37] text-xs">
           <button
             onClick={() => setActiveLayer('annotated')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition ${
               activeLayer === 'annotated'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[#222530] text-[#F4F5F7] shadow-sm'
+                : 'text-[#9CA3AF] hover:text-[#F4F5F7]'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -126,8 +126,8 @@ export const FullscreenLightbox = ({
             onClick={() => setActiveLayer('original')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition ${
               activeLayer === 'original'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[#222530] text-[#F4F5F7] shadow-sm'
+                : 'text-[#9CA3AF] hover:text-[#F4F5F7]'
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
@@ -139,11 +139,11 @@ export const FullscreenLightbox = ({
               onClick={() => setActiveLayer('heatmap')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition ${
                 activeLayer === 'heatmap'
-                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/50'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#0E261D] text-[#34D399] border border-[#1B523B]'
+                  : 'text-[#9CA3AF] hover:text-[#F4F5F7]'
               }`}
             >
-              <Activity className="w-3.5 h-3.5 text-emerald-400" />
+              <Activity className="w-3.5 h-3.5 text-[#34D399]" />
               Neural Saliency Map (3)
             </button>
           )}
@@ -151,12 +151,12 @@ export const FullscreenLightbox = ({
 
         {/* Right Close & Zoom stats */}
         <div className="flex items-center gap-3">
-          <div className="text-xs font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded border border-slate-800">
+          <div className="text-xs font-mono text-[#9CA3AF] bg-[#0E0F12] px-2.5 py-1 rounded border border-[#282B37]">
             {Math.round(zoom * 100)}%
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+            className="p-2 rounded-lg bg-[#222530] hover:bg-[#2D3140] text-[#9CA3AF] hover:text-[#F4F5F7] transition"
             title="Close Fullscreen (ESC)"
           >
             <X className="w-5 h-5" />
@@ -181,40 +181,40 @@ export const FullscreenLightbox = ({
           <img
             src={currentImageSrc}
             alt="Full Inspection View"
-            className="max-h-[82vh] max-w-[90vw] object-contain rounded-lg shadow-2xl border border-slate-800/80 pointer-events-none"
+            className="max-h-[82vh] max-w-[90vw] object-contain rounded-lg shadow-2xl border border-[#282B37] pointer-events-none"
             draggable={false}
           />
         </div>
 
         {/* Bottom Floating Control Pill */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-full px-4 py-2 flex items-center gap-3 shadow-2xl text-xs text-slate-300">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[#14151A]/90 backdrop-blur-md border border-[#282B37] rounded-full px-4 py-2 flex items-center gap-3 shadow-2xl text-xs text-[#9CA3AF]">
           <button
             onClick={handleZoomOut}
             disabled={zoom <= 0.75}
-            className="p-1.5 rounded-full hover:bg-slate-800 disabled:opacity-30 transition"
+            className="p-1.5 rounded-full hover:bg-[#222530] disabled:opacity-30 transition"
             title="Zoom Out (-)"
           >
             <ZoomOut className="w-4 h-4" />
           </button>
 
-          <span className="font-mono text-white font-medium min-w-[3rem] text-center">
+          <span className="font-mono text-[#F4F5F7] font-medium min-w-[3rem] text-center">
             {Math.round(zoom * 100)}%
           </span>
 
           <button
             onClick={handleZoomIn}
             disabled={zoom >= 4}
-            className="p-1.5 rounded-full hover:bg-slate-800 disabled:opacity-30 transition"
+            className="p-1.5 rounded-full hover:bg-[#222530] disabled:opacity-30 transition"
             title="Zoom In (+)"
           >
             <ZoomIn className="w-4 h-4" />
           </button>
 
-          <div className="w-px h-4 bg-slate-700 mx-1" />
+          <div className="w-px h-4 bg-[#282B37] mx-1" />
 
           <button
             onClick={handleReset}
-            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-800 transition text-slate-400 hover:text-white"
+            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#222530] transition text-[#9CA3AF] hover:text-[#F4F5F7]"
             title="Reset Zoom (0)"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -224,12 +224,12 @@ export const FullscreenLightbox = ({
       </div>
 
       {/* Footer Info Bar */}
-      <footer className="h-10 px-6 border-t border-slate-800/60 bg-slate-900/60 flex items-center justify-between text-[11px] font-mono text-slate-500">
+      <footer className="h-10 px-6 border-t border-[#282B37] bg-[#14151A]/80 flex items-center justify-between text-[11px] font-mono text-[#6B7280]">
         <div>
-          Keys: <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">1</kbd> Detection View ·{' '}
-          <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">2</kbd> Original ·{' '}
-          <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">3</kbd> Saliency ·{' '}
-          <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">ESC</kbd> Exit
+          Keys: <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">1</kbd> Detection View ·{' '}
+          <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">2</kbd> Original ·{' '}
+          <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">3</kbd> Saliency ·{' '}
+          <kbd className="px-1.5 py-0.5 bg-[#222530] rounded text-[#9CA3AF]">ESC</kbd> Exit
         </div>
         <div>Drag to Pan when zoomed · Scroll wheel to inspect details</div>
       </footer>

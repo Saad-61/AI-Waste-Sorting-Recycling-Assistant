@@ -9,8 +9,20 @@ import {
   Eye,
   Trash2,
   Recycle,
+  Download,
 } from 'lucide-react';
 import Modal from './ui/Modal';
+import Progress from './ui/Progress';
+import CountUp from './bits/CountUp';
+import {
+  Attachment,
+  AttachmentMedia,
+  AttachmentContent,
+  AttachmentTitle,
+  AttachmentDescription,
+  AttachmentActions,
+  AttachmentAction,
+} from './ui/attachment';
 import { formatImageSrc } from '../utils/imageUtils';
 
 /* ─── helpers ─────────────────────────────────────────────────────────────── */
@@ -21,16 +33,13 @@ const ConfidenceBar = ({ value, label }) => {
     pct >= 75 ? '#34D399' : pct >= 50 ? '#FBBF24' : '#F87171';
   return (
     <div>
-      <div className="flex justify-between text-[11px] mb-1 text-[#B0A698] font-medium">
+      <div className="flex justify-between text-[11px] mb-1.5 text-[#9CA3AF] font-medium">
         <span>{label}</span>
-        <span className="font-mono font-bold" style={{ color }}>{pct}%</span>
+        <span className="font-mono font-bold" style={{ color }}>
+          <CountUp to={pct} suffix="%" duration={0.6} />
+        </span>
       </div>
-      <div className="w-full h-2 bg-[#36312D] rounded-full overflow-hidden border border-[#4A433D]">
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
-      </div>
+      <Progress value={pct} indicatorColor={color} className="h-2" />
     </div>
   );
 };
@@ -49,33 +58,33 @@ const BinIcon = ({ bin }) => {
   if (b.includes('soft plastic') || b.includes('drop-off')) {
     return <AlertTriangle className="w-4 h-4 text-[#FBBF24]" />;
   }
-  return <Trash2 className="w-4 h-4 text-[#B0A698]" />;
+  return <Trash2 className="w-4 h-4 text-[#9CA3AF]" />;
 };
 
 const RecyclabilityChip = ({ status }) => {
   const s = (status || '').toLowerCase();
   if (s === 'yes') return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#1C3B2E] text-[#34D399] border border-[#2D7351]">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#0E261D] text-[#34D399] border border-[#1B523B]">
       <CheckCircle2 className="w-3.5 h-3.5" /> Recyclable
     </span>
   );
   if (s.includes('compost') || s.includes('organic')) return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#3A2216] text-[#FDBA74] border border-[#7D492A]">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#2A1B0E] text-[#F97316] border border-[#5E3A1A]">
       <Activity className="w-3.5 h-3.5" /> Compostable
     </span>
   );
   if (s.includes('drop-off') || s.includes('special') || s.includes('collection')) return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#3A2E12] text-[#FBBF24] border border-[#7D6015]">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#29210C] text-[#FBBF24] border border-[#5C4916]">
       <AlertTriangle className="w-3.5 h-3.5" /> Special Collection
     </span>
   );
   if (s.includes('certified') || s.includes('hazard') || s === 'no') return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#3F1919] text-[#FCA5A5] border border-[#872D2D]">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#2B1216] text-[#F87171] border border-[#5C2028]">
       <XCircle className="w-3.5 h-3.5" /> Not Recyclable
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#36312D] text-[#D8D1C7] border border-[#4A433D]">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#222530] text-[#D1D5DB] border border-[#282B37]">
       <Info className="w-3.5 h-3.5" /> {status || 'Unknown'}
     </span>
   );
@@ -109,64 +118,93 @@ export const ExplainabilityModal = ({ isOpen, onClose, item }) => {
       title={`Visual Analysis: ${item.label}`}
       maxWidth="max-w-2xl"
     >
-      <div className="flex flex-col gap-5 text-[#F4EFEA]">
+      <div className="flex flex-col gap-5 text-[#F4F5F7]">
 
-        {/* ── Image pair: crop vs heatmap ─────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Crop */}
-          <div className="rounded-xl overflow-hidden border border-[#4A433D] bg-[#1E1B19] flex flex-col">
-            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[#4A433D] bg-[#242220]">
-              <Eye className="w-3.5 h-3.5 text-[#B0A698]" />
-              <span className="text-[11px] font-medium text-[#B0A698] font-mono uppercase tracking-wider">
-                Detected Region
-              </span>
-            </div>
-            <div className="flex items-center justify-center p-2 min-h-[160px]">
+        {/* ── Image pair: crop vs heatmap as Attachments ─────────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Crop Attachment */}
+          <Attachment variant="default" size="default" className="flex-col items-stretch p-3 bg-[#1B1D24] border-[#282B37]">
+            <div className="rounded-xl overflow-hidden border border-[#282B37] bg-[#0E0F12] flex items-center justify-center p-2 min-h-[160px] mb-2">
               {cropSrc ? (
                 <img
                   src={cropSrc}
                   alt="Detected crop"
-                  className="max-h-44 w-auto object-contain rounded-lg"
+                  className="max-h-40 w-auto object-contain rounded-lg shadow-sm"
                 />
               ) : (
-                <span className="text-xs text-[#8A7F73] italic">Not available</span>
+                <span className="text-xs text-[#6B7280] italic">Crop not available</span>
               )}
             </div>
-          </div>
-
-          {/* Heatmap */}
-          <div className="rounded-xl overflow-hidden border border-[#4A433D] bg-[#1E1B19] flex flex-col">
-            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[#4A433D] bg-[#242220]">
-              <Layers className="w-3.5 h-3.5 text-[#34D399]" />
-              <span className="text-[11px] font-medium text-[#B0A698] font-mono uppercase tracking-wider">
-                Attention Map
-              </span>
+            <div className="flex items-center justify-between w-full px-0.5">
+              <AttachmentContent>
+                <AttachmentTitle className="text-xs flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-[#34D399]" />
+                  Detected Region
+                </AttachmentTitle>
+                <AttachmentDescription>
+                  <span>{item.label}</span>
+                  <span>·</span>
+                  <span>Target Cutout</span>
+                </AttachmentDescription>
+              </AttachmentContent>
+              {cropSrc && (
+                <AttachmentActions>
+                  <a href={cropSrc} download={`${item.label}_crop.jpg`} target="_blank" rel="noreferrer">
+                    <AttachmentAction aria-label="Download detected crop">
+                      <Download className="w-3.5 h-3.5 text-[#9CA3AF] hover:text-[#34D399] transition-colors" />
+                    </AttachmentAction>
+                  </a>
+                </AttachmentActions>
+              )}
             </div>
-            <div className="flex flex-col items-center justify-center p-2 min-h-[160px] gap-2">
+          </Attachment>
+
+          {/* Heatmap Attachment */}
+          <Attachment variant="default" size="default" className="flex-col items-stretch p-3 bg-[#1B1D24] border-[#282B37]">
+            <div className="rounded-xl overflow-hidden border border-[#282B37] bg-[#0E0F12] flex flex-col items-center justify-center p-2 min-h-[160px] mb-2 gap-1.5">
               {heatmapSrc ? (
                 <img
                   src={heatmapSrc}
                   alt="Saliency heatmap"
-                  className="max-h-44 w-auto object-contain rounded-lg"
+                  className="max-h-40 w-auto object-contain rounded-lg shadow-sm"
                 />
               ) : (
-                <span className="text-xs text-[#8A7F73] italic">Not available</span>
+                <span className="text-xs text-[#6B7280] italic">Heatmap not available</span>
               )}
-              <span className="text-[10px] text-[#8A7F73] font-mono text-center leading-tight">
-                Red = high focus · Blue = low focus
-              </span>
             </div>
-          </div>
+            <div className="flex items-center justify-between w-full px-0.5">
+              <AttachmentContent>
+                <AttachmentTitle className="text-xs flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#34D399]" />
+                  Attention Map
+                </AttachmentTitle>
+                <AttachmentDescription>
+                  <span>Grad-CAM Saliency</span>
+                  <span>·</span>
+                  <span>Feature focus</span>
+                </AttachmentDescription>
+              </AttachmentContent>
+              {heatmapSrc && (
+                <AttachmentActions>
+                  <a href={heatmapSrc} download={`${item.label}_gradcam.jpg`} target="_blank" rel="noreferrer">
+                    <AttachmentAction aria-label="Download attention map">
+                      <Download className="w-3.5 h-3.5 text-[#9CA3AF] hover:text-[#34D399] transition-colors" />
+                    </AttachmentAction>
+                  </a>
+                </AttachmentActions>
+              )}
+            </div>
+          </Attachment>
         </div>
 
         {/* ── What does this mean? ────────────────────────────────────────── */}
-        <div className="p-4 rounded-xl border border-[#4A433D] bg-[#2A2622]">
-          <span className="text-xs font-semibold text-[#B0A698] uppercase tracking-wider block mb-2">
+        <div className="p-4 rounded-xl border border-[#282B37] bg-[#1B1D24]">
+          <span className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider block mb-2">
             How this was identified
           </span>
-          <p className="text-sm text-[#D8D1C7] leading-relaxed">
+          <p className="text-sm text-[#D1D5DB] leading-relaxed">
             The detection system scanned the image and spotted{' '}
-            <strong className="text-[#F4EFEA]">{item.label}</strong> based on its shape and edges.
+            <strong className="text-[#F4F5F7]">{item.label}</strong> based on its shape and edges.
             The material analyser then examined the texture, colour, and surface pattern of the
             highlighted region and classified it as{' '}
             <strong className="text-[#34D399]">{item.material || item.label}</strong>.
@@ -177,22 +215,22 @@ export const ExplainabilityModal = ({ isOpen, onClose, item }) => {
 
         {/* ── Confidence scores ───────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-4 rounded-xl bg-[#36312D] border border-[#4A433D] flex flex-col gap-3">
+          <div className="p-4 rounded-xl bg-[#1B1D24] border border-[#282B37] flex flex-col gap-3">
             <ConfidenceBar value={item.confidence} label="Object Detection" />
             <ConfidenceBar value={item.classifier_confidence || item.confidence} label="Material Classification" />
           </div>
 
           {/* Result summary */}
-          <div className="p-4 rounded-xl bg-[#36312D] border border-[#4A433D] flex flex-col gap-3 justify-between">
+          <div className="p-4 rounded-xl bg-[#1B1D24] border border-[#282B37] flex flex-col gap-3 justify-between">
             <div>
-              <span className="text-[11px] font-medium text-[#B0A698] block mb-1">Disposal Bin</span>
+              <span className="text-[11px] font-medium text-[#9CA3AF] block mb-1">Disposal Bin</span>
               <div className="flex items-center gap-2">
                 <BinIcon bin={item.bin} />
-                <span className="font-semibold text-sm text-[#F4EFEA] font-display">{item.bin}</span>
+                <span className="font-semibold text-sm text-[#F4F5F7] font-display">{item.bin}</span>
               </div>
             </div>
             <div>
-              <span className="text-[11px] font-medium text-[#B0A698] block mb-1.5">Recyclability</span>
+              <span className="text-[11px] font-medium text-[#9CA3AF] block mb-1.5">Recyclability</span>
               <RecyclabilityChip status={item.recyclable} />
             </div>
           </div>
@@ -215,7 +253,7 @@ export const ExplainabilityModal = ({ isOpen, onClose, item }) => {
 
         {/* ── Disposal instructions ───────────────────────────────────────── */}
         {item.instructions && (
-          <div className="p-4 bg-[#1C3B2E] border border-[#2D7351] rounded-xl">
+          <div className="p-4 bg-[#0E261D] border border-[#1B523B] rounded-xl">
             <span className="text-[11px] font-semibold text-[#34D399] uppercase tracking-wider block mb-1.5">
               Disposal Instructions
             </span>

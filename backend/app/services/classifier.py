@@ -26,15 +26,17 @@ class WasteClassifier:
     """PyTorch-based CNN classifier for fine-grained material recognition on bounding box crops"""
 
     CLASSES = [
-        "Cardboard",
-        "Glass Bottle",
-        "Metal Can",
-        "Paper",
-        "Plastic Bottle (PET)",
-        "Plastic Container (HDPE)",
-        "Organic Waste",
-        "Electronic Waste",
-        "General Trash"
+        "Cardboard",                # 0
+        "Glass Bottle",             # 1
+        "Metal Can",                # 2
+        "Paper",                    # 3
+        "Plastic Bottle (PET)",     # 4
+        "Plastic Container (HDPE)", # 5
+        "Organic Waste",            # 6
+        "Electronic Waste",         # 7
+        "General Trash",            # 8
+        "Soft Plastic / Bag",       # 9  (v2.0)
+        "Uncertain / Other",        # 10 (v2.0)
     ]
 
     # Maximum possible entropy for this class count (log of N classes)
@@ -50,6 +52,10 @@ class WasteClassifier:
         if self.weights_path and os.path.exists(self.weights_path):
             try:
                 import torch
+                try:
+                    import timm  # required for EfficientNet-B2 model deserialization
+                except ImportError:
+                    pass
                 print(f"[WasteClassifier] Loading weights from {self.weights_path}")
                 self.model = torch.load(self.weights_path, map_location=settings.DEVICE, weights_only=False)
                 self.model.eval()
@@ -190,7 +196,7 @@ class WasteClassifier:
                 }
 
         # Hard confidence floor (catches very-low-entropy but still weak predictions)
-        if pred_conf < _MIN_TOP1_CONFIDENCE and not is_known_waste:
+        if pred_conf < _MIN_TOP1_CONFIDENCE and not is_definite_waste:
             return {
                 "material": "Uncertain / Other",
                 "confidence": round(pred_conf, 3),
@@ -211,14 +217,21 @@ class WasteClassifier:
         elif "metal" in label_lower or "can" in label_lower:
             material   = "Aluminum / Tin Can"
             confidence = max(pred_conf, 0.95)
+        elif "soft plastic" in label_lower or "bag" in label_lower:
+            material   = "Soft Plastic / Bag"
+            confidence = max(pred_conf, 0.90)
         elif "plastic" in label_lower:
             # For plastic sub-types require a higher CNN confidence bar to prevent
             # everything defaulting to PET (most common training class)
-            if predicted_material and "plastic" in predicted_material.lower() and pred_conf >= _PLASTIC_MIN_CONF:
+            if predicted_material and "soft plastic" in predicted_material.lower() and pred_conf >= 0.45:
+                material = "Soft Plastic / Bag"
+                confidence = max(pred_conf, 0.85)
+            elif predicted_material and "plastic" in predicted_material.lower() and pred_conf >= _PLASTIC_MIN_CONF:
                 material = predicted_material
+                confidence = max(pred_conf, 0.75)
             else:
                 material = "Plastic Bottle (PET)"
-            confidence = max(pred_conf, 0.75)   # lower floor vs before (was 0.88)
+                confidence = max(pred_conf, 0.75)   # lower floor vs before (was 0.88)
         elif "organic" in label_lower or "food" in label_lower:
             material   = "Organic Compostable"
             confidence = max(pred_conf, 0.96)

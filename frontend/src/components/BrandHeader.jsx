@@ -1,15 +1,20 @@
 import React from 'react';
+import ShinyText from './bits/ShinyText';
 
 export default function BrandHeader({ 
-  title = "EcoSort Studio", 
+  title = "RecycleLens", 
   version = "v2.0", 
   subtitle = "Autonomous Optical Waste & Material Sorting" 
 }) {
   return (
     <div className="flex items-center gap-3.5 select-none">
-      {/* 3-Arrow Optical Badge */}
-      <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#2D303A] bg-[#14151A] shadow-md shadow-black/50">
-        <svg viewBox="0 0 100 100" className="h-10 w-10" fill="none">
+      {/* 3-Arrow Optical Emblem - Hanging directly on background without enclosing box */}
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+        <svg 
+          viewBox="0 0 100 100" 
+          className="h-11 w-11 transition-transform duration-500 hover:rotate-45" 
+          fill="none"
+        >
           <defs>
             {/* Bold, Enlarged Arrow Blade definition filling the 100x100 canvas */}
             <path id="bold-blade" d="
@@ -26,13 +31,13 @@ export default function BrandHeader({
           </defs>
 
           <g transform="translate(50, 50)">
-            {/* 3 Bold Arrows with uniform static color */}
+            {/* 3 Bold Arrows with uniform static emerald color */}
             <use href="#bold-blade" fill="#34D399" />
             <use href="#bold-blade" transform="rotate(120)" fill="#34D399" />
             <use href="#bold-blade" transform="rotate(240)" fill="#34D399" />
 
-            {/* Enlarged Center Camera Lens & Diode (Static Color) */}
-            <circle cx="0" cy="0" r="18" fill="#14151A" stroke="#2D303A" stroke-width="2" />
+            {/* Enlarged Center Camera Lens & Diode (Hangs cleanly on #14151A) */}
+            <circle cx="0" cy="0" r="18" fill="#14151A" stroke="#282B37" stroke-width="2" />
             <circle cx="0" cy="0" r="11" fill="#34D399" />
             <circle cx="-3" cy="-3" r="3.5" fill="#FFFFFF" />
           </g>
@@ -42,8 +47,11 @@ export default function BrandHeader({
       {/* Title, Badge & Subtitle */}
       <div className="flex flex-col">
         <div className="flex items-center gap-2">
-          <span className="text-[17px] font-bold tracking-tight text-[#F5F4F0]">
-            EcoSort <span className="text-[#34D399]">Studio</span>
+          <span className="text-[17px] font-bold tracking-tight">
+            <ShinyText speed={5.5}>
+              Recycle
+            </ShinyText>
+            <span className="text-[#34D399]">Lens</span>
           </span>
           <span className="rounded-full border border-[#10B981]/30 bg-[#10B981]/10 px-2 py-[1px] font-mono text-[10.5px] font-medium text-[#34D399]">
             {version}
