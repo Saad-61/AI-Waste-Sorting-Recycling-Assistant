@@ -1,9 +1,16 @@
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application Configuration Settings"""
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=".env",
+        extra="ignore"
+    )
+
     PROJECT_NAME: str = "AI Waste Sorting & Recycling Assistant"
     API_V1_STR: str = "/api"
     ENV: str = "development"
@@ -35,9 +42,9 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000"
     ]
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
+    # Optional tunnel settings
+    NGROK_AUTHTOKEN: Optional[str] = None
+    NGROK_DOMAIN: Optional[str] = None
 
 
 settings = Settings()
